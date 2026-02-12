@@ -63,7 +63,7 @@
                 Уважаемые сотрудники, с 1 июня вступают в силу изменения в корпоративной политике.
                 Пожалуйста, ознакомьтесь с новыми правилами.
               </p>
-              <button class="btn secondary">Подробнее</button>
+              <button class="detail-btn">Подробнее</button>
             </div>
             <div class="announcement-card">
               <h3>Новые правила безопасности</h3>
@@ -71,7 +71,7 @@
                 В связи с последними событиями, мы обновляем правила безопасности. Ознакомьтесь с
                 новыми инструкциями.
               </p>
-              <button class="btn secondary">Подробнее</button>
+              <button class="detail-btn">Подробнее</button>
             </div>
           </div>
 
@@ -97,7 +97,7 @@
           <div class="event">📚 Обучение по 1С</div>
           <div class="event">📅 Планерка на неделю</div>
           <div class="event">🎯 Корпоративный тренинг</div>
-          <button class="btn secondary events-btn">Все события →</button>
+          <button class="events-btn">Все события →</button>
         </div>
       </div>
     </div>
@@ -116,7 +116,7 @@ export default {
       newsItems: [
         {
           id: 1,
-          image: goneCompani, // Используем импортированное изображение
+          image: goneCompani,
           title: 'Компания получила крупный контракт',
           date: '25 мая 2023',
           views: 245,
@@ -125,7 +125,7 @@ export default {
         },
         {
           id: 2,
-          image: toCompani, // Используем импортированное изображение
+          image: toCompani,
           title: 'Запущен новый онлайн-сервис',
           date: '12 мая 2023',
           views: 132,
@@ -218,10 +218,7 @@ export default {
   margin: 0 auto;
   padding: 0 24px;
 }
-.events-btn {
-  margin-top: 24px; /* Отступ сверху */
-  width: 100%; /* На всю ширину */
-}
+
 /* Сетка */
 .content-grid {
   display: grid;
@@ -301,6 +298,7 @@ export default {
   font-weight: bold;
 }
 
+/* Кнопка "Все новости" */
 .all-news-btn {
   background: none;
   border: none;
@@ -310,6 +308,10 @@ export default {
   cursor: pointer;
   padding: 0;
   margin-top: 8px;
+}
+
+.all-news-btn:hover {
+  text-decoration: underline;
 }
 
 /* Статистика */
@@ -345,6 +347,11 @@ export default {
   margin-top: 32px;
 }
 
+.announcements h2 {
+  font-size: 18px;
+  margin-bottom: 16px;
+}
+
 .announcement-card {
   background: #fff;
   border-radius: 12px;
@@ -365,9 +372,30 @@ export default {
   margin-bottom: 12px;
 }
 
+/* Кнопка "Подробнее" в объявлениях */
+.detail-btn {
+  background: #e5e7eb;
+  color: #111827;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.detail-btn:hover {
+  background: #d1d5db;
+}
+
 /* Отзывы сотрудников */
 .reviews {
   margin-top: 32px;
+}
+
+.reviews h2 {
+  font-size: 18px;
+  margin-bottom: 16px;
 }
 
 .review-card {
@@ -378,6 +406,17 @@ export default {
   border-left: 4px solid #f59e0b;
   font-style: italic;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.review-card p {
+  font-size: 14px;
+  color: #4b5563;
+  margin-bottom: 8px;
+}
+
+.review-card span {
+  font-size: 12px;
+  color: #6b7280;
 }
 
 /* Правая колонка */
@@ -401,22 +440,25 @@ export default {
   border-bottom: 1px solid #e5e7eb;
   font-size: 14px;
   padding-left: 10px;
+  color: #4b5563;
 }
 
-/* Кнопки */
-.btn {
-  padding: 10px 16px;
-  border-radius: 8px;
-  border: none;
-  background: #2563eb;
-  color: #fff;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.btn.secondary {
+/* Кнопка "Все события" */
+.events-btn {
+  margin-top: 24px;
+  width: 100%;
   background: #e5e7eb;
   color: #111827;
+  border: none;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.events-btn:hover {
+  background: #d1d5db;
 }
 
 /* Адаптив */
@@ -441,6 +483,16 @@ export default {
 
   .stat {
     width: 100%;
+  }
+}
+
+@media (max-width: 320px) {
+  .container {
+    padding: 0 16px;
+  }
+
+  .right-col {
+    padding: 20px;
   }
 }
 </style>
