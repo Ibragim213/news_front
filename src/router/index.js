@@ -3,6 +3,9 @@ import HomeView from '../views/HomeView.vue'
 import NewsView from '../views/NewsView.vue'
 import NewsDetail from '../views/NewsDetail.vue'
 import DocumentsView from '../views/DocumentsView.vue'
+import LoginView from '../views/LoginView.vue'
+import RegisterView from '../views/RegisterView.vue'
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
@@ -25,6 +28,21 @@ const router = createRouter({
       path: '/documents',
       name: 'documents',
       component: DocumentsView,
+    },
+    {
+      path: '/calendar',
+      name: 'calendar',
+      component: () => import('../views/CalendarView.vue'),
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: LoginView,
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: RegisterView,
     },
   ],
 })
