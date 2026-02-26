@@ -2,17 +2,31 @@
   <div class="auth-page">
     <div class="auth-container">
       <div class="auth-card">
-        <h1 class="auth-title">Регистрация</h1>
-        <p class="auth-subtitle">Создайте новый аккаунт</p>
+        <h1 class="auth-title">Регистрация сотрудника</h1>
+        <p class="auth-subtitle">Создайте новый аккаунт для сотрудника</p>
+
+        <div v-if="errorMessage" class="error-message">
+          {{ errorMessage }}
+        </div>
+
+        <div v-if="successMessage" class="success-message">
+          {{ successMessage }}
+        </div>
 
         <form @submit.prevent="handleRegister" class="auth-form">
           <div class="form-group">
-            <label for="name">Имя</label>
-            <input type="text" id="name" v-model="name" placeholder="Введите ваше имя" required />
+            <label for="username">Имя пользователя *</label>
+            <input
+              type="text"
+              id="username"
+              v-model="username"
+              placeholder="Введите имя пользователя"
+              required
+            />
           </div>
 
           <div class="form-group">
-            <label for="email">Email</label>
+            <label for="email">Email *</label>
             <input
               type="email"
               id="email"
@@ -23,13 +37,28 @@
           </div>
 
           <div class="form-group">
-            <label for="password">Пароль</label>
+            <label for="fullName">ФИО</label>
+            <input
+              type="text"
+              id="fullName"
+              v-model="fullName"
+              placeholder="Введите ФИО сотрудника"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="position">Должность</label>
+            <input type="text" id="position" v-model="position" placeholder="Введите должность" />
+          </div>
+
+          <div class="form-group">
+            <label for="password">Пароль *</label>
             <div class="password-input">
               <input
                 :type="showPassword ? 'text' : 'password'"
                 id="password"
                 v-model="password"
-                placeholder="Введите пароль"
+                placeholder="Введите пароль (минимум 6 символов)"
                 required
               />
               <button type="button" class="password-toggle" @click="togglePasswordVisibility">
@@ -40,7 +69,7 @@
           </div>
 
           <div class="form-group">
-            <label for="confirmPassword">Подтвердите пароль</label>
+            <label for="confirmPassword">Подтвердите пароль *</label>
             <div class="password-input">
               <input
                 :type="showConfirmPassword ? 'text' : 'password'"
@@ -60,35 +89,22 @@
             </div>
           </div>
 
-          <div class="terms-checkbox">
-            <input type="checkbox" id="terms" v-model="acceptTerms" required />
-            <label for="terms">
-              Я согласен с
-              <router-link to="/terms">условиями использования</router-link>
-              и <router-link to="/privacy">политикой конфиденциальности</router-link>
-            </label>
+          <div class="form-group" v-if="isAdmin">
+            <label for="role">Роль</label>
+            <select id="role" v-model="role">
+              <option value="USER">Сотрудник</option>
+              <option value="ADMIN">Администратор</option>
+            </select>
           </div>
 
           <button type="submit" class="submit-btn" :disabled="isLoading">
             <span v-if="isLoading">Регистрация...</span>
-            <span v-else>Зарегистрироваться</span>
+            <span v-else>Зарегистрировать</span>
           </button>
         </form>
 
-        <div class="auth-divider">
-          <span>или</span>
-        </div>
-
-        <div class="social-auth">
-          <button class="social-btn google-btn">
-            <span>G</span>
-            Зарегистрироваться с Google
-          </button>
-        </div>
-
-        <div class="login-link">
-          Уже есть аккаунт?
-          <router-link to="/login">Войти</router-link>
+        <div class="back-link">
+          <router-link to="/employees">← Вернуться к списку сотрудников</router-link>
         </div>
       </div>
     </div>
@@ -96,21 +112,38 @@
 </template>
 
 <script>
+import api from '@/services/api'
+
 export default {
   name: 'RegisterView',
   data() {
     return {
-      name: '',
+      username: '',
       email: '',
+      fullName: '',
+      position: '',
       password: '',
       confirmPassword: '',
-      acceptTerms: false,
+      role: 'USER',
       showPassword: false,
       showConfirmPassword: false,
       isLoading: false,
+      errorMessage: '',
+      successMessage: '',
+      isAdmin: false,
     }
   },
+  mounted() {
+    this.checkAdmin()
+  },
   methods: {
+    checkAdmin() {
+      const userStr = localStorage.getItem('user')
+      if (userStr) {
+        const user = JSON.parse(userStr)
+        this.isAdmin = user.role === 'ADMIN'
+      }
+    },
     togglePasswordVisibility() {
       this.showPassword = !this.showPassword
     },
@@ -118,22 +151,53 @@ export default {
       this.showConfirmPassword = !this.showConfirmPassword
     },
     async handleRegister() {
+      // Валидация
       if (this.password !== this.confirmPassword) {
-        alert('Пароли не совпадают')
+        this.errorMessage = 'Пароли не совпадают'
+        return
+      }
+
+      if (this.password.length < 6) {
+        this.errorMessage = 'Пароль должен быть минимум 6 символов'
         return
       }
 
       this.isLoading = true
-      try {
-        // Здесь будет логика регистрации
-        console.log('Registration attempt with:', this.name, this.email, this.password)
+      this.errorMessage = ''
+      this.successMessage = ''
 
-        // Симуляция успешной регистрации
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-        this.$router.push('/login')
+      try {
+        const response = await api.post('/auth/register', {
+          username: this.username,
+          email: this.email,
+          password: this.password,
+          fullName: this.fullName,
+          position: this.position,
+          role: this.role,
+        })
+
+        this.successMessage = response.data.message || 'Сотрудник успешно зарегистрирован!'
+
+        // Очищаем форму
+        this.username = ''
+        this.email = ''
+        this.fullName = ''
+        this.position = ''
+        this.password = ''
+        this.confirmPassword = ''
+        this.role = 'USER'
+
+        // Перенаправляем на страницу сотрудников через 2 секунды
+        setTimeout(() => {
+          this.$router.push('/employees')
+        }, 2000)
       } catch (error) {
         console.error('Registration error:', error)
-        alert('Ошибка регистрации. Пожалуйста, попробуйте позже.')
+        if (error.response) {
+          this.errorMessage = error.response.data.message || 'Ошибка регистрации'
+        } else {
+          this.errorMessage = 'Ошибка подключения к серверу'
+        }
       } finally {
         this.isLoading = false
       }
@@ -154,7 +218,7 @@ export default {
 
 .auth-container {
   width: 100%;
-  max-width: 450px;
+  max-width: 500px;
 }
 
 .auth-card {
@@ -179,6 +243,26 @@ export default {
   margin-bottom: 32px;
 }
 
+.error-message {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.success-message {
+  background: #d1fae5;
+  color: #059669;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  text-align: center;
+}
+
 .auth-form {
   display: flex;
   flex-direction: column;
@@ -197,7 +281,8 @@ export default {
   color: #374151;
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
   padding: 12px 16px;
   border: 1px solid #d1d5db;
   border-radius: 12px;
@@ -205,7 +290,8 @@ export default {
   transition: all 0.2s;
 }
 
-.form-group input:focus {
+.form-group input:focus,
+.form-group select:focus {
   outline: none;
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -224,29 +310,6 @@ export default {
   border: none;
   cursor: pointer;
   font-size: 16px;
-}
-
-.terms-checkbox {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 14px;
-  color: #6b7280;
-  margin-bottom: 16px;
-}
-
-.terms-checkbox input {
-  width: auto;
-  margin-top: 2px;
-}
-
-.terms-checkbox a {
-  color: #2563eb;
-  text-decoration: none;
-}
-
-.terms-checkbox a:hover {
-  text-decoration: underline;
 }
 
 .submit-btn {
@@ -270,80 +333,19 @@ export default {
   cursor: not-allowed;
 }
 
-.auth-divider {
-  display: flex;
-  align-items: center;
-  margin: 24px 0;
-  color: #9ca3af;
-}
-
-.auth-divider::before,
-.auth-divider::after {
-  content: '';
-  flex: 1;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.auth-divider span {
-  padding: 0 16px;
-  font-size: 14px;
-}
-
-.social-auth {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.social-btn {
-  padding: 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  transition: all 0.2s;
-}
-
-.google-btn {
-  background: white;
-  color: #111827;
-}
-
-.google-btn span {
-  background: #4285f4;
-  color: white;
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-}
-
-.google-btn:hover {
-  background: #f3f4f6;
-}
-
-.login-link {
+.back-link {
   text-align: center;
-  font-size: 14px;
+  margin-top: 24px;
+}
+
+.back-link a {
   color: #6b7280;
-}
-
-.login-link a {
-  color: #2563eb;
   text-decoration: none;
-  font-weight: 600;
+  font-size: 14px;
 }
 
-.login-link a:hover {
+.back-link a:hover {
+  color: #2563eb;
   text-decoration: underline;
 }
 </style>

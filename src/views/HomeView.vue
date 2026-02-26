@@ -1,8 +1,8 @@
 <template>
-  <div class="home">
+  <div class="home" v-if="isAuthenticated">
     <!-- Синяя полоска приветствия -->
     <div class="welcome-banner">
-      <h2>Здравствуйте, Ибраим</h2>
+      <h2>Здравствуйте, {{ userFullName || userUsername || 'Гость' }}</h2>
       <p>Вот что происходит в компании сегодня</p>
     </div>
 
@@ -17,29 +17,38 @@
           </div>
 
           <!-- Новости -->
-          <div class="news-grid">
+          <div class="news-grid" v-if="loading.news">
+            <div class="loading-card" v-for="n in 2" :key="n">Загрузка новостей...</div>
+          </div>
+          <div v-else-if="newsItems.length > 0" class="news-grid">
             <div v-for="news in newsItems" :key="news.id" class="news-card">
-              <img :src="news.image" :alt="news.title" class="news-img" />
+              <img :src="news.image || defaultNewsImage" :alt="news.title" class="news-img" />
               <div class="news-body">
                 <h3>{{ news.title }}</h3>
-                <span class="news-date">{{ news.date }}</span>
+                <span class="news-date">{{ formatDate(news.createdAt || news.date) }}</span>
               </div>
               <div class="news-footer">
-                <span>👁 {{ news.views }}</span>
+                <span>👁 {{ news.views || 0 }}</span>
                 <button
                   @click="toggleLike(news.id)"
                   class="like-btn"
                   :class="{ liked: news.liked }"
                 >
-                  ❤️ {{ news.likes }}
+                  ❤️ {{ news.likes || 0 }}
                 </button>
               </div>
             </div>
           </div>
-          <button class="all-news-btn">Все новости →</button>
+          <div v-else class="no-news">
+            <p>Нет новостей для отображения</p>
+          </div>
+          <button class="all-news-btn" @click="goToNews">Все новости →</button>
 
           <!-- Статистика -->
-          <div class="stats">
+          <div class="stats" v-if="loading.stats">
+            <div class="stat" v-for="n in 3" :key="n">Загрузка статистики...</div>
+          </div>
+          <div v-else class="stats">
             <div class="stat">
               📰<br /><strong>{{ stats.news }}</strong
               ><span>Новостей</span>
@@ -50,7 +59,7 @@
             </div>
             <div class="stat">
               👥<br /><strong>{{ stats.employees }}</strong
-              ><span>Сотрудника</span>
+              ><span>Сотрудников</span>
             </div>
           </div>
 
@@ -92,20 +101,33 @@
         <!-- Правая колонка - События -->
         <div class="right-col">
           <h2>Ближайшие события</h2>
-          <div class="event">📌 Собрание отдела продаж</div>
-          <div class="event">🎉 День рождения компании</div>
-          <div class="event">📚 Обучение по 1С</div>
-          <div class="event">📅 Планерка на неделю</div>
-          <div class="event">🎯 Корпоративный тренинг</div>
-          <button class="events-btn">Все события →</button>
+          <div v-if="loading.events" class="event-loading">Загрузка событий...</div>
+          <template v-else-if="events.length > 0">
+            <div v-for="event in events" :key="event.id" class="event">
+              {{ event.icon || '📅' }} {{ event.title }}
+            </div>
+          </template>
+          <div v-else class="no-events">
+            <p>Нет ближайших событий</p>
+          </div>
+          <button class="events-btn" @click="goToCalendar">Все события →</button>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- Экран загрузки/редиректа -->
+  <div v-else class="loading-screen">
+    <h2>Проверка авторизации...</h2>
+    <p>{{ debugMessage }}</p>
+    <button v-if="!hasToken" @click="forceLogin" class="debug-btn">
+      🔓 Принудительный вход (тест)
+    </button>
+  </div>
 </template>
 
 <script>
-// Импортируем изображения
+import api from '@/services/api'
 import goneCompani from '@/assets/images/gone_compani.png'
 import toCompani from '@/assets/images/to_compani.png'
 
@@ -113,37 +135,200 @@ export default {
   name: 'HomeView',
   data() {
     return {
-      newsItems: [
-        {
-          id: 1,
-          image: goneCompani,
-          title: 'Компания получила крупный контракт',
-          date: '25 мая 2023',
-          views: 245,
-          likes: 18,
-          liked: false,
-        },
-        {
-          id: 2,
-          image: toCompani,
-          title: 'Запущен новый онлайн-сервис',
-          date: '12 мая 2023',
-          views: 132,
-          likes: 9,
-          liked: false,
-        },
-      ],
+      isAuthenticated: false,
+      userUsername: '',
+      userFullName: '',
+      userRole: '',
+      hasToken: false,
+      debugMessage: 'Проверка авторизации...',
+      newsItems: [],
+      events: [],
       stats: {
-        news: 24,
-        documents: 156,
-        employees: 82,
+        news: 0,
+        documents: 0,
+        employees: 0,
       },
+      loading: {
+        news: true,
+        stats: true,
+        events: true,
+      },
+      defaultNewsImage: goneCompani,
     }
   },
   mounted() {
-    this.loadLikes()
+    console.log('🔍 HomeView mounted')
+    this.checkAuth()
   },
   methods: {
+    checkAuth() {
+      console.log('🔍 Checking authentication...')
+
+      const token = localStorage.getItem('token')
+      const userStr = localStorage.getItem('user')
+
+      this.hasToken = !!token
+
+      console.log('📦 Token:', token ? '✅ есть' : '❌ нет')
+      console.log('📦 User:', userStr ? '✅ есть' : '❌ нет')
+
+      if (!token || !userStr) {
+        console.log('❌ No token or user, showing debug screen')
+        this.debugMessage = 'Нет данных авторизации. Нажмите кнопку для тестового входа.'
+        return
+      }
+
+      try {
+        const userData = JSON.parse(userStr)
+        console.log('✅ User data:', userData)
+
+        this.userUsername = userData.username || ''
+        this.userFullName = userData.fullName || ''
+        this.userRole = userData.role || ''
+        this.isAuthenticated = true
+        this.debugMessage = '✅ Авторизация успешна, загружаем данные...'
+
+        // Загружаем данные
+        this.loadNews()
+        this.loadStats()
+        this.loadEvents()
+      } catch (e) {
+        console.error('❌ Error parsing user data:', e)
+        this.debugMessage = 'Ошибка парсинга данных пользователя'
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+      }
+    },
+
+    async loadNews() {
+      this.loading.news = true
+      try {
+        console.log('📰 Loading news...')
+        const response = await api.get('/news?limit=2')
+        console.log('📰 News response:', response.data)
+
+        if (response.data && response.data.length > 0) {
+          this.newsItems = response.data.map((news) => ({
+            ...news,
+            image: news.imageUrl || (news.id % 2 === 0 ? toCompani : goneCompani),
+            liked: false,
+          }))
+        } else {
+          // Демо-данные если нет новостей
+          this.newsItems = [
+            {
+              id: 1,
+              image: goneCompani,
+              title: 'Компания получила крупный контракт',
+              date: new Date(2023, 4, 25).toISOString(),
+              views: 245,
+              likes: 18,
+              liked: false,
+            },
+            {
+              id: 2,
+              image: toCompani,
+              title: 'Запущен новый онлайн-сервис',
+              date: new Date(2023, 4, 12).toISOString(),
+              views: 132,
+              likes: 9,
+              liked: false,
+            },
+          ]
+        }
+        this.loadLikes()
+      } catch (error) {
+        console.error('❌ Error loading news:', error)
+        // Показываем демо-данные при ошибке
+        this.newsItems = [
+          {
+            id: 1,
+            image: goneCompani,
+            title: 'Компания получила крупный контракт',
+            date: new Date(2023, 4, 25).toISOString(),
+            views: 245,
+            likes: 18,
+            liked: false,
+          },
+          {
+            id: 2,
+            image: toCompani,
+            title: 'Запущен новый онлайн-сервис',
+            date: new Date(2023, 4, 12).toISOString(),
+            views: 132,
+            likes: 9,
+            liked: false,
+          },
+        ]
+      } finally {
+        this.loading.news = false
+      }
+    },
+
+    async loadStats() {
+      this.loading.stats = true
+      try {
+        console.log('📊 Loading stats...')
+
+        // Получаем все данные и считаем их длину
+        const [newsRes, docsRes, employeesRes] = await Promise.all([
+          api.get('/news').catch(() => ({ data: [] })),
+          api.get('/documents').catch(() => ({ data: [] })),
+          api.get('/employees').catch(() => ({ data: [] })),
+        ])
+
+        this.stats = {
+          news: newsRes.data?.length || 24,
+          documents: docsRes.data?.length || 156,
+          employees: employeesRes.data?.length || 82,
+        }
+
+        console.log('📊 Stats:', this.stats)
+      } catch (error) {
+        console.error('❌ Error loading stats:', error)
+        this.stats = {
+          news: 24,
+          documents: 156,
+          employees: 82,
+        }
+      } finally {
+        this.loading.stats = false
+      }
+    },
+
+    async loadEvents() {
+      this.loading.events = true
+      try {
+        console.log('📅 Loading events...')
+        // ✅ ИСПРАВЛЕНО: используем правильный URL /calendar/events
+        const response = await api.get('/calendar/events?limit=5')
+        console.log('📅 Events response:', response.data)
+
+        if (response.data && response.data.length > 0) {
+          this.events = response.data
+        } else {
+          this.events = [
+            { id: 1, icon: '📌', title: 'Собрание отдела продаж' },
+            { id: 2, icon: '🎉', title: 'День рождения компании' },
+            { id: 3, icon: '📚', title: 'Обучение по 1С' },
+            { id: 4, icon: '📅', title: 'Планерка на неделю' },
+            { id: 5, icon: '🎯', title: 'Корпоративный тренинг' },
+          ]
+        }
+      } catch (error) {
+        console.error('❌ Error loading events:', error)
+        this.events = [
+          { id: 1, icon: '📌', title: 'Собрание отдела продаж' },
+          { id: 2, icon: '🎉', title: 'День рождения компании' },
+          { id: 3, icon: '📚', title: 'Обучение по 1С' },
+          { id: 4, icon: '📅', title: 'Планерка на неделю' },
+          { id: 5, icon: '🎯', title: 'Корпоративный тренинг' },
+        ]
+      } finally {
+        this.loading.events = false
+      }
+    },
+
     toggleLike(newsId) {
       const news = this.newsItems.find((item) => item.id === newsId)
       if (news) {
@@ -155,8 +340,11 @@ export default {
           news.liked = true
         }
         this.saveLikes()
+        // Отправляем лайк на сервер (если есть такой эндпоинт)
+        api.post(`/news/${newsId}/like`, { liked: news.liked }).catch(() => {})
       }
     },
+
     saveLikes() {
       const likesData = this.newsItems.map((item) => ({
         id: item.id,
@@ -165,6 +353,7 @@ export default {
       }))
       localStorage.setItem('newsLikes', JSON.stringify(likesData))
     },
+
     loadLikes() {
       const savedLikes = localStorage.getItem('newsLikes')
       if (savedLikes) {
@@ -181,6 +370,39 @@ export default {
           return news
         })
       }
+    },
+
+    formatDate(dateString) {
+      if (!dateString) return ''
+      const date = new Date(dateString)
+      return date.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    },
+
+    goToNews() {
+      this.$router.push('/news')
+    },
+
+    goToCalendar() {
+      this.$router.push('/calendar')
+    },
+
+    forceLogin() {
+      console.log('🔐 Force login with test user')
+      const testUser = {
+        id: 1,
+        username: 'admin',
+        fullName: 'Тестовый Администратор',
+        role: 'ADMIN',
+        email: 'admin@example.com',
+        position: 'Администратор системы',
+      }
+      localStorage.setItem('user', JSON.stringify(testUser))
+      localStorage.setItem('token', 'test-token-12345')
+      this.checkAuth()
     },
   },
 }
@@ -244,6 +466,12 @@ export default {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.news-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .news-img {
@@ -308,9 +536,11 @@ export default {
   cursor: pointer;
   padding: 0;
   margin-top: 8px;
+  transition: color 0.2s ease;
 }
 
 .all-news-btn:hover {
+  color: #1d4ed8;
   text-decoration: underline;
 }
 
@@ -325,20 +555,26 @@ export default {
   background: #fff;
   border-radius: 12px;
   padding: 16px;
-  width: 160px;
+  flex: 1;
   text-align: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .stat strong {
-  font-size: 24px;
+  font-size: 28px;
   display: block;
   color: #1976d2;
   margin: 8px 0 4px;
 }
 
 .stat span {
-  font-size: 12px;
+  font-size: 14px;
   color: #6b7280;
 }
 
@@ -359,6 +595,12 @@ export default {
   margin-bottom: 16px;
   border-left: 4px solid #2563eb;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.announcement-card:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .announcement-card h3 {
@@ -370,6 +612,7 @@ export default {
   font-size: 14px;
   color: #4b5563;
   margin-bottom: 12px;
+  line-height: 1.5;
 }
 
 /* Кнопка "Подробнее" в объявлениях */
@@ -406,12 +649,19 @@ export default {
   border-left: 4px solid #f59e0b;
   font-style: italic;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.review-card:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .review-card p {
   font-size: 14px;
   color: #4b5563;
   margin-bottom: 8px;
+  line-height: 1.5;
 }
 
 .review-card span {
@@ -426,11 +676,17 @@ export default {
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   height: fit-content;
+  transition: transform 0.2s ease;
+}
+
+.right-col:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .right-col h2 {
   font-size: 18px;
   margin-bottom: 20px;
+  color: #111827;
 }
 
 .event {
@@ -441,6 +697,12 @@ export default {
   font-size: 14px;
   padding-left: 10px;
   color: #4b5563;
+  transition: background-color 0.2s ease;
+}
+
+.event:hover {
+  background-color: #f9fafb;
+  cursor: pointer;
 }
 
 /* Кнопка "Все события" */
@@ -459,6 +721,64 @@ export default {
 
 .events-btn:hover {
   background: #d1d5db;
+  transform: translateY(-1px);
+}
+
+/* Загрузка */
+.loading-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  color: #9ca3af;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.event-loading {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.no-news,
+.no-events {
+  padding: 20px;
+  text-align: center;
+  color: #9ca3af;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 18px;
+}
+
+.debug-btn {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.debug-btn:hover {
+  background: #059669;
 }
 
 /* Адаптив */
@@ -479,6 +799,7 @@ export default {
 
   .stats {
     flex-direction: column;
+    gap: 12px;
   }
 
   .stat {

@@ -4,7 +4,7 @@
     <div class="container">
       <div class="calendar-header">
         <h1>Календарь</h1>
-        <button class="add-event-btn" @click="showAddEventModal = true">Добавить событие</button>
+        <button class="add-event-btn" @click="showAddEventModal = true">➕ Добавить событие</button>
       </div>
 
       <div class="calendar-controls">
@@ -21,35 +21,42 @@
         </div>
       </div>
 
-      <div class="calendar-weekdays">
-        <div v-for="day in weekdays" :key="day" class="weekday">{{ day }}</div>
-      </div>
+      <!-- Индикатор загрузки -->
+      <div v-if="loading" class="loading-state">Загрузка событий...</div>
 
-      <div class="calendar-days">
-        <div v-for="day in emptyDays" :key="'empty-' + day" class="calendar-day empty"></div>
+      <template v-else>
+        <div class="calendar-weekdays">
+          <div v-for="day in weekdays" :key="day" class="weekday">{{ day }}</div>
+        </div>
 
-        <div
-          v-for="day in daysInMonth"
-          :key="day.date"
-          class="calendar-day"
-          :class="{ 'has-event': day.hasEvent, today: day.isToday }"
-          @click="selectDay(day)"
-        >
-          <div class="day-number">{{ day.date.getDate() }}</div>
-          <div v-if="day.events.length > 0" class="event-block">
-            <div class="event-item" v-for="(event, index) in day.events.slice(0, 1)" :key="index">
-              {{ truncateTitle(event.title) }}
+        <div class="calendar-days">
+          <div v-for="day in emptyDays" :key="'empty-' + day" class="calendar-day empty"></div>
+
+          <div
+            v-for="day in daysInMonth"
+            :key="day.date"
+            class="calendar-day"
+            :class="{ 'has-event': day.hasEvent, today: day.isToday }"
+            @click="selectDay(day)"
+          >
+            <div class="day-number">{{ day.date.getDate() }}</div>
+            <div v-if="day.events.length > 0" class="event-block">
+              <div class="event-item" v-for="(event, index) in day.events.slice(0, 1)" :key="index">
+                {{ truncateTitle(event.title) }}
+              </div>
+              <div v-if="day.events.length > 1" class="more-events">
+                +{{ day.events.length - 1 }}
+              </div>
             </div>
-            <div v-if="day.events.length > 1" class="more-events">+{{ day.events.length - 1 }}</div>
           </div>
         </div>
-      </div>
+      </template>
     </div>
 
     <!-- Модальное окно для добавления события -->
     <div v-if="showAddEventModal" class="modal-overlay" @click.self="closeModal">
       <div class="modal">
-        <h2>Добавить событие</h2>
+        <h2>📅 Добавить событие</h2>
         <form @submit.prevent="addEvent" class="event-form">
           <div class="form-group">
             <label for="event-title">Название события</label>
@@ -73,7 +80,9 @@
 
           <div class="modal-actions">
             <button type="button" class="cancel-btn" @click="closeModal">Отмена</button>
-            <button type="submit" class="publish-btn">Сохранить</button>
+            <button type="submit" class="publish-btn" :disabled="addingEvent">
+              {{ addingEvent ? 'Добавление...' : 'Сохранить' }}
+            </button>
           </div>
         </form>
       </div>
@@ -94,7 +103,7 @@
             <div class="event-time">{{ formatEventTime(event) }}</div>
             <div class="event-title">{{ event.title }}</div>
             <div class="event-description">{{ event.description }}</div>
-            <button class="delete-event" @click.stop="deleteEvent(index)">Удалить</button>
+            <button class="delete-event" @click.stop="deleteEvent(index)">🗑️ Удалить</button>
           </div>
         </div>
 
@@ -107,6 +116,8 @@
 </template>
 
 <script>
+import api from '@/services/api'
+
 export default {
   name: 'CalendarView',
   data() {
@@ -115,6 +126,7 @@ export default {
       weekdays: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
       showAddEventModal: false,
       showDayEventsModal: false,
+      addingEvent: false,
       selectedDay: null,
       newEvent: {
         title: '',
@@ -122,7 +134,8 @@ export default {
         time: '',
         description: '',
       },
-      events: JSON.parse(localStorage.getItem('calendarEvents')) || {},
+      events: {},
+      loading: true,
     }
   },
   computed: {
@@ -165,13 +178,45 @@ export default {
       return (firstDay.getDay() === 0 ? 7 : firstDay.getDay()) - 1
     },
   },
+  mounted() {
+    this.loadEvents()
+    this.newEvent.date = new Date().toISOString().split('T')[0]
+  },
   methods: {
+    async loadEvents() {
+      this.loading = true
+      try {
+        const response = await api.get('/calendar/events')
+        console.log('Events loaded:', response.data)
+
+        // Преобразуем массив событий в объект по датам
+        const eventsByDate = {}
+        response.data.forEach((event) => {
+          const dateKey = event.date
+            ? event.date.split('T')[0]
+            : new Date().toISOString().split('T')[0]
+          if (!eventsByDate[dateKey]) {
+            eventsByDate[dateKey] = []
+          }
+          eventsByDate[dateKey].push(event)
+        })
+        this.events = eventsByDate
+      } catch (error) {
+        console.error('Error loading events:', error)
+        // Если ошибка, загружаем из localStorage как раньше
+        this.events = JSON.parse(localStorage.getItem('calendarEvents')) || {}
+      } finally {
+        this.loading = false
+      }
+    },
+
     truncateTitle(title) {
-      if (title.length > 12) {
+      if (title && title.length > 12) {
         return title.substring(0, 12) + '...'
       }
-      return title
+      return title || ''
     },
+
     prevMonth() {
       this.currentDate = new Date(
         this.currentDate.getFullYear(),
@@ -208,7 +253,7 @@ export default {
       this.showAddEventModal = false
       this.newEvent = {
         title: '',
-        date: '',
+        date: new Date().toISOString().split('T')[0],
         time: '',
         description: '',
       }
@@ -223,41 +268,65 @@ export default {
       }
       return 'Весь день'
     },
-    addEvent() {
+
+    async addEvent() {
       if (!this.newEvent.title || !this.newEvent.date) {
         alert('Пожалуйста, заполните название и дату события')
         return
       }
 
-      const dateKey = this.newEvent.date
-      if (!this.events[dateKey]) {
-        this.events[dateKey] = []
+      this.addingEvent = true
+      try {
+        const eventData = {
+          title: this.newEvent.title,
+          date: this.newEvent.date,
+          time: this.newEvent.time || null,
+          description: this.newEvent.description || '',
+        }
+
+        const response = await api.post('/calendar/events', eventData)
+        console.log('Event added:', response.data)
+
+        // Перезагружаем события
+        await this.loadEvents()
+        this.closeModal()
+
+        // Уведомляем главную страницу об обновлении
+        window.dispatchEvent(new Event('events-updated'))
+      } catch (error) {
+        console.error('Error adding event:', error)
+        alert('Ошибка при добавлении события')
+      } finally {
+        this.addingEvent = false
       }
-
-      this.events[dateKey].push({
-        title: this.newEvent.title,
-        time: this.newEvent.time,
-        description: this.newEvent.description,
-      })
-
-      localStorage.setItem('calendarEvents', JSON.stringify(this.events))
-      this.closeModal()
     },
-    deleteEvent(index) {
+
+    async deleteEvent(index) {
       const dateKey = this.selectedDay.dateKey
-      this.selectedDay.events.splice(index, 1)
-      this.events[dateKey] = this.selectedDay.events
+      const eventToDelete = this.selectedDay.events[index]
 
-      if (this.selectedDay.events.length === 0) {
-        delete this.events[dateKey]
+      if (eventToDelete.id) {
+        try {
+          await api.delete(`/calendar/events/${eventToDelete.id}`)
+          await this.loadEvents()
+          window.dispatchEvent(new Event('events-updated'))
+        } catch (error) {
+          console.error('Error deleting event:', error)
+          alert('Ошибка при удалении события')
+        }
+      } else {
+        // Если нет id, удаляем из localStorage
+        this.selectedDay.events.splice(index, 1)
+        this.events[dateKey] = this.selectedDay.events
+
+        if (this.selectedDay.events.length === 0) {
+          delete this.events[dateKey]
+        }
+
+        localStorage.setItem('calendarEvents', JSON.stringify(this.events))
+        window.dispatchEvent(new Event('events-updated'))
       }
-
-      localStorage.setItem('calendarEvents', JSON.stringify(this.events))
     },
-  },
-  mounted() {
-    // Устанавливаем текущую дату при загрузке
-    this.newEvent.date = new Date().toISOString().split('T')[0]
   },
 }
 </script>
@@ -301,10 +370,15 @@ export default {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .add-event-btn:hover {
   background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
 
 /* Элементы управления календарем */
@@ -440,6 +514,16 @@ export default {
   text-align: center;
 }
 
+.loading-state {
+  text-align: center;
+  padding: 40px;
+  background: white;
+  border-radius: 16px;
+  color: #6b7280;
+  font-size: 16px;
+  margin: 20px 0;
+}
+
 /* Модальные окна */
 .modal-overlay {
   position: fixed;
@@ -452,6 +536,7 @@ export default {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  backdrop-filter: blur(5px);
 }
 
 .modal {
@@ -462,6 +547,18 @@ export default {
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .modal h2 {
@@ -550,8 +647,13 @@ export default {
   transition: all 0.2s;
 }
 
-.publish-btn:hover {
+.publish-btn:hover:not(:disabled) {
   background: #1d4ed8;
+}
+
+.publish-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* События дня */
@@ -612,8 +714,9 @@ export default {
   color: #ef4444;
   font-size: 12px;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 4px 8px;
   border-radius: 4px;
+  transition: all 0.2s;
 }
 
 .delete-event:hover {

@@ -5,6 +5,9 @@ import NewsDetail from '../views/NewsDetail.vue'
 import DocumentsView from '../views/DocumentsView.vue'
 import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
+import ProfileView from '../views/ProfileView.vue'
+import EmployeesView from '../views/EmployeesView.vue'
+import CalendarView from '../views/CalendarView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -30,9 +33,14 @@ const router = createRouter({
       component: DocumentsView,
     },
     {
+      path: '/employees',
+      name: 'employees',
+      component: EmployeesView,
+    },
+    {
       path: '/calendar',
       name: 'calendar',
-      component: () => import('../views/CalendarView.vue'),
+      component: CalendarView,
     },
     {
       path: '/login',
@@ -44,7 +52,40 @@ const router = createRouter({
       name: 'register',
       component: RegisterView,
     },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: ProfileView,
+      meta: { requiresAuth: true },
+    },
   ],
+})
+
+// Защита маршрутов
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('token')
+  const userStr = localStorage.getItem('user')
+  let user = null
+
+  if (userStr) {
+    try {
+      user = JSON.parse(userStr)
+    } catch (e) {
+      console.error('Error parsing user', e)
+    }
+  }
+
+  // Проверка на страницы, требующие авторизации
+  if (to.meta.requiresAuth && !token) {
+    next('/login')
+  }
+
+  // Проверка на страницу регистрации (только для админа)
+  else if (to.path === '/register' && (!user || user.role !== 'ADMIN')) {
+    next('/')
+  } else {
+    next()
+  }
 })
 
 export default router

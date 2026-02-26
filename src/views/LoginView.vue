@@ -5,14 +5,18 @@
         <h1 class="auth-title">Вход</h1>
         <p class="auth-subtitle">Войдите в свой аккаунт</p>
 
+        <div v-if="errorMessage" class="error-message">
+          {{ errorMessage }}
+        </div>
+
         <form @submit.prevent="handleLogin" class="auth-form">
           <div class="form-group">
-            <label for="email">Email</label>
+            <label for="username">Имя пользователя</label>
             <input
-              type="email"
-              id="email"
-              v-model="email"
-              placeholder="Введите ваш email"
+              type="text"
+              id="username"
+              v-model="username"
+              placeholder="Введите ваше имя пользователя"
               required
             />
           </div>
@@ -39,9 +43,6 @@
               <input type="checkbox" id="remember" v-model="rememberMe" />
               <label for="remember">Запомнить меня</label>
             </div>
-            <router-link to="/forgot-password" class="forgot-password">
-              Забыли пароль?
-            </router-link>
           </div>
 
           <button type="submit" class="submit-btn" :disabled="isLoading">
@@ -54,13 +55,6 @@
           <span>или</span>
         </div>
 
-        <div class="social-auth">
-          <button class="social-btn google-btn">
-            <span>G</span>
-            Войти с Google
-          </button>
-        </div>
-
         <div class="register-link">
           Еще нет аккаунта?
           <router-link to="/register">Зарегистрироваться</router-link>
@@ -71,15 +65,18 @@
 </template>
 
 <script>
+import axios from 'axios'
+
 export default {
   name: 'LoginView',
   data() {
     return {
-      email: '',
+      username: '',
       password: '',
       rememberMe: false,
       showPassword: false,
       isLoading: false,
+      errorMessage: '',
     }
   },
   methods: {
@@ -88,17 +85,39 @@ export default {
     },
     async handleLogin() {
       this.isLoading = true
-      try {
-        // Здесь будет логика авторизации
-        // Например, вызов API для проверки учетных данных
-        console.log('Login attempt with:', this.email, this.password)
+      this.errorMessage = ''
 
-        // Симуляция успешного входа
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+      try {
+        const response = await axios.post('http://localhost:8080/api/auth/login', {
+          username: this.username,
+          password: this.password,
+        })
+
+        localStorage.setItem('token', response.data.token)
+
+        const userData = {
+          id: response.data.id,
+          username: response.data.username,
+          email: response.data.email,
+          fullName: response.data.fullName || '',
+          position: response.data.position || '',
+          role: response.data.role || 'USER',
+        }
+
+        localStorage.setItem('user', JSON.stringify(userData))
+
+        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`
+
+        window.dispatchEvent(new Event('user-updated'))
+
         this.$router.push('/')
       } catch (error) {
         console.error('Login error:', error)
-        alert('Неверный email или пароль')
+        if (error.response) {
+          this.errorMessage = error.response.data.message || 'Неверное имя пользователя или пароль'
+        } else {
+          this.errorMessage = 'Ошибка подключения к серверу'
+        }
       } finally {
         this.isLoading = false
       }
@@ -142,6 +161,16 @@ export default {
   color: #6b7280;
   text-align: center;
   margin-bottom: 32px;
+}
+
+.error-message {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  text-align: center;
 }
 
 .auth-form {
@@ -208,16 +237,6 @@ export default {
   width: auto;
 }
 
-.forgot-password {
-  color: #2563eb;
-  text-decoration: none;
-  font-size: 14px;
-}
-
-.forgot-password:hover {
-  text-decoration: underline;
-}
-
 .submit-btn {
   padding: 14px;
   background: #2563eb;
@@ -256,48 +275,6 @@ export default {
 .auth-divider span {
   padding: 0 16px;
   font-size: 14px;
-}
-
-.social-auth {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.social-btn {
-  padding: 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  transition: all 0.2s;
-}
-
-.google-btn {
-  background: white;
-  color: #111827;
-}
-
-.google-btn span {
-  background: #4285f4;
-  color: white;
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-}
-
-.google-btn:hover {
-  background: #f3f4f6;
 }
 
 .register-link {

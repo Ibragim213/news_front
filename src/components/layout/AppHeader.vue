@@ -15,15 +15,24 @@
         </router-link>
       </nav>
 
-      <!-- Профиль -->
+      <!-- Профиль/Вход -->
       <div class="header-actions">
-        <router-link to="/profile" class="profile-link">
-          <div class="profile-wrapper">
-            <img src="@/assets/images/imagesss.png" alt="Профиль" class="profile-image" />
-            <span class="profile-status"></span>
-          </div>
-          <span class="profile-name">{{ userName }}</span>
-        </router-link>
+        <div class="user-menu" v-if="isAuthenticated">
+          <router-link to="/profile" class="profile-link">
+            <div class="profile-wrapper">
+              <img src="@/assets/images/imagesss.png" alt="Профиль" class="profile-image" />
+              <span class="profile-status"></span>
+            </div>
+            <span class="profile-name">{{ displayName }}</span>
+          </router-link>
+          <button @click="logout" class="logout-btn" title="Выйти">
+            <span>🚪</span>
+          </button>
+        </div>
+
+        <div v-else class="auth-links">
+          <router-link to="/login" class="auth-link login-btn">Вход</router-link>
+        </div>
       </div>
     </div>
   </header>
@@ -41,30 +50,70 @@ export default {
         { path: '/employees', label: 'Сотрудники' },
         { path: '/calendar', label: 'Календарь' },
       ],
-      userName: 'Ибраим', // Здесь будет имя после регистрации
+      isAuthenticated: false,
+      userData: {
+        username: 'Гость',
+        fullName: '',
+        role: 'USER',
+      },
     }
   },
+  computed: {
+    displayName() {
+      return this.userData.fullName || this.userData.username
+    },
+  },
+  created() {
+    this.loadUserData()
+  },
   mounted() {
-    // Загружаем имя из localStorage при монтировании
-    this.loadUserName()
+    window.addEventListener('user-updated', this.loadUserData)
+    window.addEventListener('storage', this.handleStorageChange)
+  },
+  beforeUnmount() {
+    window.removeEventListener('user-updated', this.loadUserData)
+    window.removeEventListener('storage', this.handleStorageChange)
   },
   methods: {
-    loadUserName() {
-      // Сначала проверяем localStorage
-      const savedName = localStorage.getItem('userName')
-      if (savedName) {
-        this.userName = savedName
+    loadUserData() {
+      const token = localStorage.getItem('token')
+      const userStr = localStorage.getItem('user')
+
+      if (token && userStr) {
+        try {
+          this.userData = JSON.parse(userStr)
+          this.isAuthenticated = true
+          console.log('User loaded:', this.userData)
+        } catch (e) {
+          console.error('Error parsing user data', e)
+          this.resetAuth()
+        }
       } else {
-        // Если нет сохраненного имени, устанавливаем по умолчанию
-        this.userName = 'Ибраим'
-        localStorage.setItem('userName', 'Ибраим')
+        this.resetAuth()
       }
     },
 
-    // Метод для обновления имени (будем вызывать после регистрации)
-    updateUserName(name) {
-      this.userName = name
-      localStorage.setItem('userName', name)
+    handleStorageChange(e) {
+      if (e.key === 'token' || e.key === 'user') {
+        this.loadUserData()
+      }
+    },
+
+    resetAuth() {
+      this.isAuthenticated = false
+      this.userData = {
+        username: 'Гость',
+        fullName: '',
+        role: 'USER',
+      }
+    },
+
+    logout() {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      this.resetAuth()
+      window.dispatchEvent(new Event('user-updated'))
+      this.$router.push('/')
     },
   },
 }
@@ -95,7 +144,6 @@ export default {
   align-items: center;
 }
 
-/* Навигация */
 .nav {
   display: flex;
   align-items: center;
@@ -118,7 +166,6 @@ export default {
   overflow: hidden;
 }
 
-/* Индикатор активной ссылки */
 .nav-indicator {
   position: absolute;
   bottom: 0;
@@ -131,7 +178,6 @@ export default {
   border-radius: 3px 3px 0 0;
 }
 
-/* Эффект при наведении */
 .nav-link:hover {
   background: rgba(37, 99, 235, 0.05);
   color: #2563eb;
@@ -142,7 +188,6 @@ export default {
   width: 30px;
 }
 
-/* Активная ссылка */
 .nav-link.active {
   color: #2563eb;
   background: rgba(37, 99, 235, 0.08);
@@ -153,13 +198,11 @@ export default {
   background: linear-gradient(90deg, #2563eb, #3b82f6);
 }
 
-/* Эффект при клике */
 .nav-link:active {
   transform: scale(0.98);
   background: rgba(37, 99, 235, 0.12);
 }
 
-/* Профиль */
 .header-actions {
   display: flex;
   align-items: center;
@@ -183,6 +226,18 @@ export default {
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
 }
 
+.login-btn {
+  background: #2563eb;
+  color: white !important;
+  padding: 8px 24px;
+  border-radius: 40px;
+}
+
+.login-btn:hover {
+  background: #1d4ed8 !important;
+  color: white !important;
+}
+
 .profile-wrapper {
   position: relative;
 }
@@ -204,7 +259,6 @@ export default {
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
 
-/* Статус онлайн */
 .profile-status {
   position: absolute;
   bottom: 2px;
@@ -218,12 +272,6 @@ export default {
   transition: all 0.3s ease;
 }
 
-.profile-link:hover .profile-status {
-  transform: scale(1.1);
-  background: #059669;
-}
-
-/* Имя пользователя */
 .profile-name {
   color: #1f2937;
   font-size: 15px;
@@ -235,7 +283,49 @@ export default {
   color: #2563eb;
 }
 
-/* Адаптив */
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.logout-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  transform: scale(1.1);
+}
+
+.auth-links {
+  display: flex;
+  gap: 12px;
+}
+
+.auth-link {
+  padding: 8px 16px;
+  text-decoration: none;
+  color: #4b5563;
+  font-weight: 500;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.auth-link:hover {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.05);
+}
+
 @media (max-width: 768px) {
   .container {
     padding: 0 16px;
@@ -251,7 +341,12 @@ export default {
   }
 
   .profile-name {
-    display: none; /* Скрываем имя на планшетах */
+    display: none;
+  }
+
+  .logout-btn {
+    padding: 6px;
+    font-size: 16px;
   }
 }
 
@@ -272,7 +367,6 @@ export default {
   }
 }
 
-/* Анимация появления */
 @keyframes fadeIn {
   from {
     opacity: 0;

@@ -20,8 +20,11 @@
         </select>
       </div>
 
+      <!-- Индикатор загрузки -->
+      <div v-if="loading" class="loading-state">Загрузка документов...</div>
+
       <!-- Карточки документов -->
-      <div class="documents-grid">
+      <div v-else-if="documentsList.length > 0" class="documents-grid">
         <div class="document-card" v-for="doc in filteredDocuments" :key="doc.id">
           <div class="document-header">
             <div class="document-icon-wrapper" :class="getFileIconClass(doc.fileType)">
@@ -34,15 +37,14 @@
             <h3>{{ doc.title }}</h3>
             <div class="document-meta">
               <span class="document-category">{{ doc.category }}</span>
-              <span class="document-size">{{ doc.size }}</span>
+              <span class="document-size">{{ formatFileSize(doc.fileSize) }}</span>
             </div>
           </div>
 
           <div class="document-actions">
             <a
               class="download-btn"
-              :href="`/uploads/${doc.fileName}`"
-              :download="doc.fileName"
+              :href="`http://localhost:8080/api/documents/download/${doc.id}`"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -51,51 +53,26 @@
           </div>
         </div>
       </div>
+
+      <!-- Сообщение если нет документов -->
+      <div v-else class="empty-state">
+        <p>Нет документов</p>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
+import api from '@/services/api'
+
 export default {
   name: 'DocumentsView',
   data() {
     return {
       searchQuery: '',
       selectedCategory: '',
-      documentsList: [
-        {
-          id: 1,
-          title: 'Инструкция по использованию портала',
-          category: 'Инструкции',
-          fileName: 'instryjchu.docx',
-          fileType: 'docx',
-          size: '1024 kb',
-        },
-        {
-          id: 2,
-          title: 'Ежемесячный отчет за январь',
-          category: 'Отчеты',
-          fileName: 'otchet.docx',
-          fileType: 'docx',
-          size: '1024 kb',
-        },
-        {
-          id: 3,
-          title: 'Шаблон договора',
-          category: 'Шаблоны',
-          fileName: 'shablon.docx',
-          fileType: 'docx',
-          size: '1024 kb',
-        },
-        {
-          id: 4,
-          title: 'Favicon',
-          category: 'Шаблоны',
-          fileName: 'favicon.ico',
-          fileType: 'ico',
-          size: '15 kb',
-        },
-      ],
+      documentsList: [],
+      loading: true,
     }
   },
   computed: {
@@ -112,7 +89,70 @@ export default {
       return filtered
     },
   },
+  mounted() {
+    this.loadDocuments()
+    window.addEventListener('documents-updated', this.loadDocuments)
+  },
+  beforeUnmount() {
+    window.removeEventListener('documents-updated', this.loadDocuments)
+  },
   methods: {
+    async loadDocuments() {
+      this.loading = true
+      try {
+        const response = await api.get('/documents')
+        console.log('Documents loaded:', response.data)
+        this.documentsList = response.data || []
+      } catch (error) {
+        console.error('Error loading documents:', error)
+        // Если ошибка, показываем демо-данные
+        this.documentsList = [
+          {
+            id: 1,
+            title: 'Инструкция по использованию портала',
+            category: 'Инструкции',
+            fileName: 'instryjchu.docx',
+            fileType: 'docx',
+            fileSize: 1048576,
+          },
+          {
+            id: 2,
+            title: 'Ежемесячный отчет за январь',
+            category: 'Отчеты',
+            fileName: 'otchet.docx',
+            fileType: 'docx',
+            fileSize: 1048576,
+          },
+          {
+            id: 3,
+            title: 'Шаблон договора',
+            category: 'Шаблоны',
+            fileName: 'shablon.docx',
+            fileType: 'docx',
+            fileSize: 1048576,
+          },
+          {
+            id: 4,
+            title: 'Favicon',
+            category: 'Шаблоны',
+            fileName: 'favicon.ico',
+            fileType: 'ico',
+            fileSize: 15360,
+          },
+        ]
+      } finally {
+        this.loading = false
+      }
+    },
+
+    formatFileSize(bytes) {
+      if (!bytes) return '0 B'
+      if (bytes < 1024) return bytes + ' B'
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
+      if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB'
+      return (bytes / 1073741824).toFixed(1) + ' GB'
+    },
+
     getFileIcon(fileType) {
       const type = fileType?.toLowerCase()
       const icons = {
@@ -357,6 +397,22 @@ h1 {
   background: #1d4ed8;
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+}
+
+.loading-state {
+  text-align: center;
+  padding: 40px;
+  background: white;
+  border-radius: 16px;
+  color: #6b7280;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  background: white;
+  border-radius: 16px;
+  color: #6b7280;
 }
 
 /* Адаптивность */
