@@ -75,7 +75,7 @@
 
           <!-- Основные действия -->
           <div class="actions-section">
-            <button class="edit-btn" @click="showEditModal = true" :disabled="isLoading">
+            <button class="edit-btn" @click="openEditModal" :disabled="isLoading">
               <span>✏️</span> Редактировать профиль
             </button>
             <button class="password-btn" @click="showPasswordModal = true" :disabled="isLoading">
@@ -92,17 +92,42 @@
       <div class="modal">
         <h2>Редактировать профиль</h2>
         <form @submit.prevent="updateProfile">
-          <div class="form-group">
-            <label>ФИО</label>
-            <input type="text" v-model="editForm.fullName" placeholder="Введите ФИО" />
+          <p v-if="!isAdmin" class="form-hint">
+            Сотрудник может изменить только email. ФИО и должность меняет администратор.
+          </p>
+          <div v-if="isAdmin" class="form-group">
+            <label for="profile-full-name">ФИО</label>
+            <input
+              id="profile-full-name"
+              name="fullName"
+              type="text"
+              v-model="editForm.fullName"
+              autocomplete="name"
+              placeholder="Введите ФИО"
+            />
+          </div>
+          <div v-if="isAdmin" class="form-group">
+            <label for="profile-position">Должность</label>
+            <input
+              id="profile-position"
+              name="position"
+              type="text"
+              v-model="editForm.position"
+              autocomplete="organization-title"
+              placeholder="Введите должность"
+            />
           </div>
           <div class="form-group">
-            <label>Должность</label>
-            <input type="text" v-model="editForm.position" placeholder="Введите должность" />
-          </div>
-          <div class="form-group">
-            <label>Email</label>
-            <input type="email" v-model="editForm.email" required placeholder="Введите email" />
+            <label for="profile-email">Email</label>
+            <input
+              id="profile-email"
+              name="email"
+              type="email"
+              v-model="editForm.email"
+              autocomplete="email"
+              required
+              placeholder="Введите email"
+            />
           </div>
           <div class="modal-actions">
             <button type="button" class="cancel-btn" @click="showEditModal = false">Отмена</button>
@@ -120,11 +145,14 @@
         <h2>Сменить пароль</h2>
         <form @submit.prevent="changePassword">
           <div class="form-group">
-            <label>Текущий пароль</label>
+            <label for="current-password">Текущий пароль</label>
             <div class="password-input">
               <input
+                id="current-password"
+                name="currentPassword"
                 :type="showOldPassword ? 'text' : 'password'"
                 v-model="passwordForm.oldPassword"
+                autocomplete="current-password"
                 required
                 placeholder="Введите текущий пароль"
               />
@@ -138,11 +166,14 @@
             </div>
           </div>
           <div class="form-group">
-            <label>Новый пароль</label>
+            <label for="new-password">Новый пароль</label>
             <div class="password-input">
               <input
+                id="new-password"
+                name="newPassword"
                 :type="showNewPassword ? 'text' : 'password'"
                 v-model="passwordForm.newPassword"
+                autocomplete="new-password"
                 required
                 minlength="6"
                 placeholder="Минимум 6 символов"
@@ -157,11 +188,14 @@
             </div>
           </div>
           <div class="form-group">
-            <label>Подтвердите новый пароль</label>
+            <label for="confirm-new-password">Подтвердите новый пароль</label>
             <div class="password-input">
               <input
+                id="confirm-new-password"
+                name="confirmNewPassword"
                 :type="showConfirmPassword ? 'text' : 'password'"
                 v-model="passwordForm.confirmPassword"
+                autocomplete="new-password"
                 required
                 placeholder="Повторите новый пароль"
               />
@@ -226,6 +260,15 @@ export default {
     window.removeEventListener('user-updated', this.loadProfile)
   },
   methods: {
+    openEditModal() {
+      this.editForm = {
+        fullName: this.profile.fullName || '',
+        position: this.profile.position || '',
+        email: this.profile.email || '',
+      }
+      this.showEditModal = true
+    },
+
     loadProfile() {
       const userStr = localStorage.getItem('user')
       if (userStr) {
@@ -260,11 +303,16 @@ export default {
     async updateProfile() {
       this.isLoading = true
       try {
-        const response = await api.put('/profile/update', {
-          fullName: this.editForm.fullName,
-          position: this.editForm.position,
+        const payload = {
           email: this.editForm.email,
-        })
+        }
+
+        if (this.isAdmin) {
+          payload.fullName = this.editForm.fullName
+          payload.position = this.editForm.position
+        }
+
+        const response = await api.put('/profile/update', payload)
 
         // Обновляем данные в localStorage
         const updatedProfile = {
@@ -794,6 +842,16 @@ export default {
   margin-bottom: 20px;
 }
 
+.form-hint {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .form-group label {
   display: block;
   margin-bottom: 8px;
@@ -895,6 +953,33 @@ export default {
 }
 
 @media (max-width: 640px) {
+  .profile-view {
+    padding: 20px 0;
+  }
+
+  .container {
+    padding: 0 16px;
+  }
+
+  .profile-header,
+  .profile-info {
+    padding: 24px 20px;
+  }
+
+  .profile-avatar {
+    width: 96px;
+    height: 96px;
+  }
+
+  .profile-header h1 {
+    font-size: 24px;
+    line-height: 1.25;
+  }
+
+  .profile-position {
+    font-size: 14px;
+  }
+
   .info-grid {
     grid-template-columns: 1fr;
   }
@@ -905,6 +990,7 @@ export default {
 
   .actions-section {
     flex-direction: column;
+    padding-top: 24px;
   }
 
   .edit-btn,
@@ -912,6 +998,129 @@ export default {
   .logout-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .modal-overlay {
+    align-items: flex-start;
+    overflow-y: auto;
+    padding: 12px;
+  }
+
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    padding: 24px 18px;
+    margin: 24px 0;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .cancel-btn,
+  .submit-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 0 12px;
+  }
+
+  .profile-card {
+    border-radius: 18px;
+  }
+
+  .profile-header,
+  .profile-info {
+    padding: 20px 16px;
+  }
+
+  .profile-avatar {
+    width: 84px;
+    height: 84px;
+    margin-bottom: 16px;
+  }
+
+  .admin-badge {
+    width: 30px;
+    height: 30px;
+    font-size: 15px;
+  }
+
+  .admin-actions-section {
+    padding: 18px 16px;
+  }
+
+  .admin-actions-section h3 {
+    font-size: 18px;
+  }
+
+  .admin-action-card {
+    align-items: flex-start;
+    padding: 14px;
+  }
+
+  .action-icon {
+    width: 42px;
+    height: 42px;
+    font-size: 20px;
+  }
+
+  .action-title {
+    font-size: 15px;
+  }
+
+  .action-desc {
+    font-size: 11px;
+  }
+
+  .action-arrow {
+    display: none;
+  }
+
+  .info-item .value {
+    font-size: 15px;
+    line-height: 1.45;
+  }
+
+  .modal {
+    padding: 20px 14px;
+    border-radius: 18px;
+  }
+
+  .modal h2 {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 360px) {
+  .container {
+    padding: 0 10px;
+  }
+
+  .profile-header h1 {
+    font-size: 22px;
+  }
+
+  .profile-position,
+  .profile-role,
+  .form-hint {
+    font-size: 13px;
+  }
+
+  .edit-btn,
+  .password-btn,
+  .logout-btn,
+  .cancel-btn,
+  .submit-btn {
+    font-size: 14px;
+    padding: 11px 16px;
+  }
+
+  .modal {
+    padding: 18px 12px;
   }
 }
 </style>

@@ -21,26 +21,31 @@ const router = createRouter({
       path: '/news',
       name: 'news',
       component: NewsView,
+      meta: { requiresAuth: true },
     },
     {
       path: '/news/:id',
       name: 'news-detail',
       component: NewsDetail,
+      meta: { requiresAuth: true },
     },
     {
       path: '/documents',
       name: 'documents',
       component: DocumentsView,
+      meta: { requiresAuth: true },
     },
     {
       path: '/employees',
       name: 'employees',
       component: EmployeesView,
+      meta: { requiresAuth: true },
     },
     {
       path: '/calendar',
       name: 'calendar',
       component: CalendarView,
+      meta: { requiresAuth: true },
     },
     {
       path: '/login',
@@ -51,6 +56,7 @@ const router = createRouter({
       path: '/register',
       name: 'register',
       component: RegisterView,
+      meta: { requiresAuth: true, requiresAdmin: true },
     },
     {
       path: '/profile',
@@ -61,31 +67,31 @@ const router = createRouter({
   ],
 })
 
-// Защита маршрутов
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
   const userStr = localStorage.getItem('user')
-  let user = null
 
+  let isAdmin = false
   if (userStr) {
     try {
-      user = JSON.parse(userStr)
-    } catch (e) {
-      console.error('Error parsing user', e)
+      const user = JSON.parse(userStr)
+      isAdmin = user.role === 'ADMIN'
+    } catch (error) {
+      localStorage.removeItem('user')
     }
   }
 
-  // Проверка на страницы, требующие авторизации
   if (to.meta.requiresAuth && !token) {
     next('/login')
+    return
   }
 
-  // Проверка на страницу регистрации (только для админа)
-  else if (to.path === '/register' && (!user || user.role !== 'ADMIN')) {
+  if (to.meta.requiresAdmin && !isAdmin) {
     next('/')
-  } else {
-    next()
+    return
   }
+
+  next()
 })
 
 export default router

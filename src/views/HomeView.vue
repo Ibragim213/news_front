@@ -1,135 +1,164 @@
 <template>
-  <div class="home" v-if="isAuthenticated">
-    <!-- Синяя полоска приветствия -->
-    <div class="welcome-banner">
-      <h2>Здравствуйте, {{ userFullName || userUsername || 'Гость' }}</h2>
-      <p>Вот что происходит в компании сегодня</p>
-    </div>
+  <div v-if="isAuthenticated" class="home-page-old">
+    <div class="home-page-old__container">
+      <section class="home-page-old__banner">
+        <h2>Здравствуйте, {{ userFullName || userUsername || 'Гость' }}</h2>
+        <p>Вот что происходит в компании сегодня</p>
+      </section>
 
-    <!-- Основной контент -->
-    <div class="container">
-      <!-- Две колонки -->
-      <div class="content-grid">
-        <!-- Левая колонка - Новости -->
-        <div class="left-col">
-          <div class="news-header">
-            <h2>Последние новости</h2>
-          </div>
+      <div class="home-page-old__layout">
+        <main class="home-page-old__main">
+          <section class="home-page-old__section">
+            <div class="home-page-old__section-header">
+              <h2>Последние новости</h2>
+            </div>
 
-          <!-- Новости -->
-          <div class="news-grid" v-if="loading.news">
-            <div class="loading-card" v-for="n in 2" :key="n">Загрузка новостей...</div>
-          </div>
-          <div v-else-if="newsItems.length > 0" class="news-grid">
-            <div v-for="news in newsItems" :key="news.id" class="news-card">
-              <img :src="news.image || defaultNewsImage" :alt="news.title" class="news-img" />
-              <div class="news-body">
-                <h3>{{ news.title }}</h3>
-                <span class="news-date">{{ formatDate(news.createdAt || news.date) }}</span>
-              </div>
-              <div class="news-footer">
-                <span>👁 {{ news.views || 0 }}</span>
-                <button
-                  @click="toggleLike(news.id)"
-                  class="like-btn"
-                  :class="{ liked: news.liked }"
-                >
-                  ❤️ {{ news.likes || 0 }}
-                </button>
-              </div>
+            <div v-if="loading.news" class="home-page-old__news-grid">
+              <div v-for="n in 2" :key="n" class="home-page-old__loading-card">Загрузка новостей...</div>
             </div>
-          </div>
-          <div v-else class="no-news">
-            <p>Нет новостей для отображения</p>
-          </div>
-          <button class="all-news-btn" @click="goToNews">Все новости →</button>
 
-          <!-- Статистика -->
-          <div class="stats" v-if="loading.stats">
-            <div class="stat" v-for="n in 3" :key="n">Загрузка статистики...</div>
-          </div>
-          <div v-else class="stats">
-            <div class="stat">
-              📰<br /><strong>{{ stats.news }}</strong
-              ><span>Новостей</span>
+            <div v-else-if="newsItems.length > 0" class="home-page-old__news-grid">
+              <article
+                v-for="news in newsItems"
+                :key="news.id"
+                class="home-page-old__news-card"
+                @click="openNews(news.id)"
+              >
+                <div class="home-page-old__news-link">
+                  <img :src="news.image || defaultNewsImage" :alt="news.title" class="home-page-old__news-image" />
+                  <div class="home-page-old__news-body">
+                    <h3>{{ news.title }}</h3>
+                    <span>{{ formatDate(news.createdAt || news.date) }}</span>
+                  </div>
+                  <div class="home-page-old__news-footer">
+                    <span>Просмотры: {{ news.views || 0 }}</span>
+                    <button
+                      class="home-page-old__like-btn"
+                      :class="{ 'is-liked': news.liked }"
+                      @click.stop="toggleLike(news.id)"
+                    >
+                      ❤ {{ news.likes || 0 }}
+                    </button>
+                  </div>
+                </div>
+              </article>
             </div>
-            <div class="stat">
-              📄<br /><strong>{{ stats.documents }}</strong
-              ><span>Документов</span>
-            </div>
-            <div class="stat">
-              👥<br /><strong>{{ stats.employees }}</strong
-              ><span>Сотрудников</span>
-            </div>
-          </div>
 
-          <!-- Важные объявления -->
-          <div class="announcements">
-            <h2>Важные объявления</h2>
-            <div class="announcement-card">
+            <div v-else class="home-page-old__empty-state">Нет новостей для отображения</div>
+
+            <button class="home-page-old__link-btn" @click="goToNews">Все новости →</button>
+          </section>
+
+          <section class="home-page-old__stats" v-if="loading.stats">
+            <div v-for="n in 3" :key="n" class="home-page-old__stat-card home-page-old__stat-card--loading">
+              Загрузка статистики...
+            </div>
+          </section>
+
+          <section v-else class="home-page-old__stats">
+            <article class="home-page-old__stat-card">
+              <div class="home-page-old__stat-icon">📰</div>
+              <strong>{{ stats.news }}</strong>
+              <span>Новостей</span>
+            </article>
+
+            <article class="home-page-old__stat-card">
+              <div class="home-page-old__stat-icon">📄</div>
+              <strong>{{ stats.documents }}</strong>
+              <span>Документов</span>
+            </article>
+
+            <article class="home-page-old__stat-card">
+              <div class="home-page-old__stat-icon">👥</div>
+              <strong>{{ stats.employees }}</strong>
+              <span>Сотрудников</span>
+            </article>
+          </section>
+
+          <section class="home-page-old__section">
+            <div class="home-page-old__section-header">
+              <h2>Важные объявления</h2>
+            </div>
+
+            <article class="home-page-old__info-card home-page-old__info-card--blue">
               <h3>Обновление корпоративной политики</h3>
               <p>
                 Уважаемые сотрудники, с 1 июня вступают в силу изменения в корпоративной политике.
                 Пожалуйста, ознакомьтесь с новыми правилами.
               </p>
-              <button class="detail-btn">Подробнее</button>
-            </div>
-            <div class="announcement-card">
+            </article>
+
+            <article class="home-page-old__info-card home-page-old__info-card--blue">
               <h3>Новые правила безопасности</h3>
               <p>
-                В связи с последними событиями, мы обновляем правила безопасности. Ознакомьтесь с
-                новыми инструкциями.
+                В связи с последними событиями, мы обновили внутренние правила безопасности.
+                Ознакомьтесь с новыми инструкциями.
               </p>
-              <button class="detail-btn">Подробнее</button>
-            </div>
-          </div>
+            </article>
+          </section>
 
-          <!-- Отзывы сотрудников -->
-          <div class="reviews">
-            <h2>Отзывы сотрудников</h2>
-            <div class="review-card">
+          <section class="home-page-old__section">
+            <div class="home-page-old__section-header">
+              <h2>Отзывы сотрудников</h2>
+            </div>
+
+            <article class="home-page-old__info-card home-page-old__info-card--gold">
               <p>"Отличная команда, всегда готовы помочь!"</p>
-              <span>— Анна, менеджер по продажам</span>
-            </div>
-            <div class="review-card">
-              <p>"Работаю здесь уже 5 лет и каждый день радуюсь, что выбрал эту компанию."</p>
-              <span>— Дмитрий, разработчик</span>
-            </div>
-          </div>
-        </div>
+              <span>Анна, менеджер по продажам</span>
+            </article>
 
-        <!-- Правая колонка - События -->
-        <div class="right-col">
-          <h2>Ближайшие события</h2>
-          <div v-if="loading.events" class="event-loading">Загрузка событий...</div>
-          <template v-else-if="events.length > 0">
-            <div v-for="event in events" :key="event.id" class="event">
-              {{ event.icon || '📅' }} {{ event.title }}
-            </div>
-          </template>
-          <div v-else class="no-events">
-            <p>Нет ближайших событий</p>
-          </div>
-          <button class="events-btn" @click="goToCalendar">Все события →</button>
-        </div>
+            <article class="home-page-old__info-card home-page-old__info-card--gold">
+              <p>"Работаю здесь уже 5 лет и каждый день радуюсь, что выбрал эту компанию."</p>
+              <span>Дмитрий, разработчик</span>
+            </article>
+          </section>
+        </main>
+
+        <aside class="home-page-old__sidebar">
+          <section class="home-page-old__events-card">
+            <h2>Ближайшие события</h2>
+
+            <div v-if="loading.events" class="home-page-old__event-loading">Загрузка событий...</div>
+
+            <template v-else-if="events.length > 0">
+              <div v-for="event in events" :key="event.id" class="home-page-old__event-item">
+                <div class="home-page-old__event-date">
+                  <strong>{{ formatEventDate(event.eventDate) }}</strong>
+                  <span>{{ formatEventTime(event.eventTime) }}</span>
+                </div>
+                <div class="home-page-old__event-copy">
+                  <strong>{{ event.title }}</strong>
+                  <span>{{ event.audienceLabel }}</span>
+                </div>
+              </div>
+            </template>
+
+            <div v-else class="home-page-old__empty-state">Нет ближайших событий</div>
+
+            <button class="home-page-old__secondary-btn home-page-old__events-btn" @click="goToCalendar">
+              Все события →
+            </button>
+          </section>
+        </aside>
       </div>
     </div>
   </div>
 
-  <!-- Экран загрузки/редиректа -->
-  <div v-else class="loading-screen">
-    <h2>Проверка авторизации...</h2>
-    <p>{{ debugMessage }}</p>
-    <button v-if="!hasToken" @click="forceLogin" class="debug-btn">
-      🔓 Принудительный вход (тест)
-    </button>
+  <div v-else class="home-page-old__guest">
+    <h2>Войдите в аккаунт</h2>
+    <p>После входа будут доступны новости, документы, сотрудники и календарь.</p>
+    <button class="home-page-old__login-btn" @click="$router.push('/login')">Перейти ко входу</button>
   </div>
 </template>
 
 <script>
-import api from '@/services/api'
+import axios from 'axios'
+import { fetchPublicCalendarEvents, formatCalendarEventDate, formatCalendarEventTime } from '@/services/calendar'
+import { fetchNews, formatNewsDate, toggleNewsLike } from '@/services/news'
 import goneCompani from '@/assets/images/gone_compani.png'
 import toCompani from '@/assets/images/to_compani.png'
+
+const API_BASE_URL = 'http://localhost:8080/api'
 
 export default {
   name: 'HomeView',
@@ -138,9 +167,6 @@ export default {
       isAuthenticated: false,
       userUsername: '',
       userFullName: '',
-      userRole: '',
-      hasToken: false,
-      debugMessage: 'Проверка авторизации...',
       newsItems: [],
       events: [],
       stats: {
@@ -157,109 +183,70 @@ export default {
     }
   },
   mounted() {
-    console.log('🔍 HomeView mounted')
-    this.checkAuth()
+    this.loadSession()
+    window.addEventListener('user-updated', this.loadSession)
+    window.addEventListener('events-updated', this.loadEvents)
+  },
+  beforeUnmount() {
+    window.removeEventListener('user-updated', this.loadSession)
+    window.removeEventListener('events-updated', this.loadEvents)
   },
   methods: {
-    checkAuth() {
-      console.log('🔍 Checking authentication...')
+    async safeGet(path, fallbackValue) {
+      const token = localStorage.getItem('token')
 
+      try {
+        const response = await axios.get(`${API_BASE_URL}${path}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          validateStatus: () => true,
+        })
+
+        return response.status === 200 ? response.data : fallbackValue
+      } catch (error) {
+        return fallbackValue
+      }
+    },
+    loadSession() {
       const token = localStorage.getItem('token')
       const userStr = localStorage.getItem('user')
 
-      this.hasToken = !!token
-
-      console.log('📦 Token:', token ? '✅ есть' : '❌ нет')
-      console.log('📦 User:', userStr ? '✅ есть' : '❌ нет')
-
       if (!token || !userStr) {
-        console.log('❌ No token or user, showing debug screen')
-        this.debugMessage = 'Нет данных авторизации. Нажмите кнопку для тестового входа.'
+        this.isAuthenticated = false
+        this.userUsername = ''
+        this.userFullName = ''
         return
       }
 
       try {
         const userData = JSON.parse(userStr)
-        console.log('✅ User data:', userData)
-
         this.userUsername = userData.username || ''
         this.userFullName = userData.fullName || ''
-        this.userRole = userData.role || ''
         this.isAuthenticated = true
-        this.debugMessage = '✅ Авторизация успешна, загружаем данные...'
-
-        // Загружаем данные
-        this.loadNews()
-        this.loadStats()
-        this.loadEvents()
-      } catch (e) {
-        console.error('❌ Error parsing user data:', e)
-        this.debugMessage = 'Ошибка парсинга данных пользователя'
+        this.loadDashboard()
+      } catch (error) {
+        console.error('Error parsing user data:', error)
         localStorage.removeItem('token')
         localStorage.removeItem('user')
+        this.isAuthenticated = false
       }
+    },
+
+    async loadDashboard() {
+      await Promise.all([this.loadNews(), this.loadStats(), this.loadEvents()])
     },
 
     async loadNews() {
       this.loading.news = true
-      try {
-        console.log('📰 Loading news...')
-        const response = await api.get('/news?limit=2')
-        console.log('📰 News response:', response.data)
 
-        if (response.data && response.data.length > 0) {
-          this.newsItems = response.data.map((news) => ({
-            ...news,
-            image: news.imageUrl || (news.id % 2 === 0 ? toCompani : goneCompani),
-            liked: false,
-          }))
-        } else {
-          // Демо-данные если нет новостей
-          this.newsItems = [
-            {
-              id: 1,
-              image: goneCompani,
-              title: 'Компания получила крупный контракт',
-              date: new Date(2023, 4, 25).toISOString(),
-              views: 245,
-              likes: 18,
-              liked: false,
-            },
-            {
-              id: 2,
-              image: toCompani,
-              title: 'Запущен новый онлайн-сервис',
-              date: new Date(2023, 4, 12).toISOString(),
-              views: 132,
-              likes: 9,
-              liked: false,
-            },
-          ]
-        }
-        this.loadLikes()
+      try {
+        const items = await fetchNews(2)
+        this.newsItems = items.map((news) => ({
+          ...news,
+          image: news.imageUrl || (news.id % 2 === 0 ? toCompani : goneCompani),
+        }))
       } catch (error) {
-        console.error('❌ Error loading news:', error)
-        // Показываем демо-данные при ошибке
-        this.newsItems = [
-          {
-            id: 1,
-            image: goneCompani,
-            title: 'Компания получила крупный контракт',
-            date: new Date(2023, 4, 25).toISOString(),
-            views: 245,
-            likes: 18,
-            liked: false,
-          },
-          {
-            id: 2,
-            image: toCompani,
-            title: 'Запущен новый онлайн-сервис',
-            date: new Date(2023, 4, 12).toISOString(),
-            views: 132,
-            likes: 9,
-            liked: false,
-          },
-        ]
+        console.error('Error loading news:', error)
+        this.newsItems = []
       } finally {
         this.loading.news = false
       }
@@ -267,29 +254,25 @@ export default {
 
     async loadStats() {
       this.loading.stats = true
-      try {
-        console.log('📊 Loading stats...')
 
-        // Получаем все данные и считаем их длину
-        const [newsRes, docsRes, employeesRes] = await Promise.all([
-          api.get('/news').catch(() => ({ data: [] })),
-          api.get('/documents').catch(() => ({ data: [] })),
-          api.get('/employees').catch(() => ({ data: [] })),
+      try {
+        const [newsData, docsData, employeesData] = await Promise.all([
+          this.safeGet('/news', []),
+          this.safeGet('/documents', []),
+          this.safeGet('/employees', []),
         ])
 
         this.stats = {
-          news: newsRes.data?.length || 24,
-          documents: docsRes.data?.length || 156,
-          employees: employeesRes.data?.length || 82,
+          news: Array.isArray(newsData) ? newsData.length : 0,
+          documents: Array.isArray(docsData) ? docsData.length : 0,
+          employees: Array.isArray(employeesData) ? employeesData.length : 0,
         }
-
-        console.log('📊 Stats:', this.stats)
       } catch (error) {
-        console.error('❌ Error loading stats:', error)
+        console.error('Error loading stats:', error)
         this.stats = {
-          news: 24,
-          documents: 156,
-          employees: 82,
+          news: 0,
+          documents: 0,
+          employees: 0,
         }
       } finally {
         this.loading.stats = false
@@ -298,88 +281,50 @@ export default {
 
     async loadEvents() {
       this.loading.events = true
-      try {
-        console.log('📅 Loading events...')
-        // ✅ ИСПРАВЛЕНО: используем правильный URL /calendar/events
-        const response = await api.get('/calendar/events?limit=5')
-        console.log('📅 Events response:', response.data)
 
-        if (response.data && response.data.length > 0) {
-          this.events = response.data
-        } else {
-          this.events = [
-            { id: 1, icon: '📌', title: 'Собрание отдела продаж' },
-            { id: 2, icon: '🎉', title: 'День рождения компании' },
-            { id: 3, icon: '📚', title: 'Обучение по 1С' },
-            { id: 4, icon: '📅', title: 'Планерка на неделю' },
-            { id: 5, icon: '🎯', title: 'Корпоративный тренинг' },
-          ]
-        }
+      try {
+        this.events = await fetchPublicCalendarEvents(5)
       } catch (error) {
-        console.error('❌ Error loading events:', error)
-        this.events = [
-          { id: 1, icon: '📌', title: 'Собрание отдела продаж' },
-          { id: 2, icon: '🎉', title: 'День рождения компании' },
-          { id: 3, icon: '📚', title: 'Обучение по 1С' },
-          { id: 4, icon: '📅', title: 'Планерка на неделю' },
-          { id: 5, icon: '🎯', title: 'Корпоративный тренинг' },
-        ]
+        console.error('Error loading events:', error)
+        this.events = []
       } finally {
         this.loading.events = false
       }
     },
 
-    toggleLike(newsId) {
-      const news = this.newsItems.find((item) => item.id === newsId)
-      if (news) {
-        if (news.liked) {
-          news.likes--
-          news.liked = false
-        } else {
-          news.likes++
-          news.liked = true
-        }
-        this.saveLikes()
-        // Отправляем лайк на сервер (если есть такой эндпоинт)
-        api.post(`/news/${newsId}/like`, { liked: news.liked }).catch(() => {})
+    async toggleLike(newsId) {
+      try {
+        const updatedNews = await toggleNewsLike(newsId)
+        this.newsItems = this.newsItems.map((news) =>
+          news.id === newsId
+            ? {
+                ...updatedNews,
+                image: news.image,
+              }
+            : news,
+        )
+      } catch (error) {
+        console.error('Error toggling like:', error)
       }
     },
 
-    saveLikes() {
-      const likesData = this.newsItems.map((item) => ({
-        id: item.id,
-        likes: item.likes,
-        liked: item.liked,
-      }))
-      localStorage.setItem('newsLikes', JSON.stringify(likesData))
-    },
-
-    loadLikes() {
-      const savedLikes = localStorage.getItem('newsLikes')
-      if (savedLikes) {
-        const likesData = JSON.parse(savedLikes)
-        this.newsItems = this.newsItems.map((news) => {
-          const saved = likesData.find((item) => item.id === news.id)
-          if (saved) {
-            return {
-              ...news,
-              likes: saved.likes,
-              liked: saved.liked,
-            }
-          }
-          return news
-        })
-      }
+    openNews(newsId) {
+      this.$router.push(`/news/${newsId}`)
     },
 
     formatDate(dateString) {
-      if (!dateString) return ''
-      const date = new Date(dateString)
-      return date.toLocaleDateString('ru-RU', {
+      return formatNewsDate(dateString)
+    },
+
+    formatEventDate(eventDate) {
+      return formatCalendarEventDate(eventDate, {
         day: 'numeric',
-        month: 'long',
-        year: 'numeric',
+        month: 'short',
       })
+    },
+
+    formatEventTime(eventTime) {
+      return formatCalendarEventTime(eventTime)
     },
 
     goToNews() {
@@ -389,431 +334,518 @@ export default {
     goToCalendar() {
       this.$router.push('/calendar')
     },
-
-    forceLogin() {
-      console.log('🔐 Force login with test user')
-      const testUser = {
-        id: 1,
-        username: 'admin',
-        fullName: 'Тестовый Администратор',
-        role: 'ADMIN',
-        email: 'admin@example.com',
-        position: 'Администратор системы',
-      }
-      localStorage.setItem('user', JSON.stringify(testUser))
-      localStorage.setItem('token', 'test-token-12345')
-      this.checkAuth()
-    },
   },
 }
 </script>
 
 <style scoped>
-/* Синяя полоска приветствия */
-.welcome-banner {
-  background: #1976d2;
-  color: white;
-  padding: 20px;
-  width: 1280px;
-  height: 140px;
-  border-radius: 25px;
-  margin: 16px auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+.home-page-old {
+  min-height: calc(100vh - 72px);
+  background: #ececec;
+  padding: 20px 0 36px;
 }
 
-.welcome-banner h2 {
-  margin: 0 0 8px 0;
-  font-size: 24px;
-}
-
-.welcome-banner p {
-  margin: 0;
-  font-size: 16px;
-  opacity: 0.9;
-}
-
-/* Основной контент */
-.container {
+.home-page-old__container {
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 24px;
 }
 
-/* Сетка */
-.content-grid {
+.home-page-old__banner {
+  min-height: 140px;
+  margin-bottom: 26px;
+  padding: 28px 36px;
+  border-radius: 26px;
+  background: linear-gradient(135deg, #3c6be0 0%, #2d62db 100%);
+  color: #fff;
+  box-shadow: 0 18px 40px rgba(60, 107, 224, 0.2);
+}
+
+.home-page-old__banner h2 {
+  margin: 0 0 10px;
+  font-size: 34px;
+  font-weight: 700;
+}
+
+.home-page-old__banner p {
+  margin: 0;
+  font-size: 16px;
+  opacity: 0.92;
+}
+
+.home-page-old__layout {
   display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 32px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 28px;
 }
 
-/* Левая колонка */
-.left-col {
-  width: 100%;
+.home-page-old__main {
+  min-width: 0;
 }
 
-/* Новости */
-.news-grid {
+.home-page-old__section {
+  margin-bottom: 28px;
+}
+
+.home-page-old__section-header {
+  margin-bottom: 16px;
+}
+
+.home-page-old__section-header h2 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  color: #101828;
+}
+
+.home-page-old__news-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
 }
 
-.news-card {
-  background: #fff;
-  border-radius: 12px;
+.home-page-old__news-card {
+  min-width: 0;
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
 }
 
-.news-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.news-img {
+.home-page-old__news-link {
   width: 100%;
-  height: 140px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  display: block;
+}
+
+.home-page-old__news-image {
+  width: 100%;
+  height: 190px;
   object-fit: cover;
+  display: block;
 }
 
-.news-body {
-  padding: 12px;
+.home-page-old__news-body {
+  padding: 16px 16px 10px;
 }
 
-.news-body h3 {
-  font-size: 14px;
+.home-page-old__news-body h3 {
   margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #101828;
 }
 
-.news-date {
-  font-size: 12px;
-  color: #6b7280;
+.home-page-old__news-body span {
+  font-size: 13px;
+  color: #667085;
 }
 
-.news-footer {
-  padding: 8px 12px;
-  font-size: 12px;
-  border-top: 1px solid #e5e7eb;
-  background: #f9fafb;
+.home-page-old__news-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  padding: 12px 16px 16px;
+  font-size: 13px;
+  color: #667085;
 }
 
-.like-btn {
-  background: none;
+.home-page-old__like-btn {
   border: none;
+  border-radius: 999px;
+  background: #f2f4f7;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
   cursor: pointer;
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 12px;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
-.like-btn:hover {
-  background-color: #fee2e2;
+.home-page-old__like-btn.is-liked {
+  background: #fee4e2;
+  color: #d92d20;
 }
 
-.like-btn.liked {
-  color: #ef4444;
-  font-weight: bold;
-}
-
-/* Кнопка "Все новости" */
-.all-news-btn {
-  background: none;
+.home-page-old__link-btn {
+  margin-top: 14px;
   border: none;
-  color: #2563eb;
+  background: transparent;
+  color: #3c6be0;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   padding: 0;
-  margin-top: 8px;
-  transition: color 0.2s ease;
 }
 
-.all-news-btn:hover {
-  color: #1d4ed8;
-  text-decoration: underline;
+.home-page-old__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
 }
 
-/* Статистика */
-.stats {
-  display: flex;
-  gap: 20px;
-  margin-top: 32px;
-}
-
-.stat {
+.home-page-old__stat-card {
   background: #fff;
-  border-radius: 12px;
-  padding: 16px;
-  flex: 1;
+  border-radius: 14px;
+  padding: 18px 16px;
   text-align: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
 }
 
-.stat:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.stat strong {
-  font-size: 28px;
+.home-page-old__stat-card strong {
   display: block;
-  color: #1976d2;
-  margin: 8px 0 4px;
+  margin: 10px 0 4px;
+  font-size: 28px;
+  color: #3c6be0;
 }
 
-.stat span {
+.home-page-old__stat-card span {
   font-size: 14px;
-  color: #6b7280;
+  color: #667085;
 }
 
-/* Важные объявления */
-.announcements {
-  margin-top: 32px;
+.home-page-old__stat-icon {
+  font-size: 22px;
 }
 
-.announcements h2 {
-  font-size: 18px;
-  margin-bottom: 16px;
+.home-page-old__stat-card--loading,
+.home-page-old__loading-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #98a2b3;
 }
 
-.announcement-card {
+.home-page-old__loading-card {
+  min-height: 300px;
+}
+
+.home-page-old__info-card {
   background: #fff;
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 14px;
+  padding: 18px 20px;
   margin-bottom: 16px;
-  border-left: 4px solid #2563eb;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08);
 }
 
-.announcement-card:hover {
-  transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+.home-page-old__info-card--blue {
+  border-left: 4px solid #3c6be0;
 }
 
-.announcement-card h3 {
-  font-size: 16px;
-  margin: 0 0 8px;
-}
-
-.announcement-card p {
-  font-size: 14px;
-  color: #4b5563;
-  margin-bottom: 12px;
-  line-height: 1.5;
-}
-
-/* Кнопка "Подробнее" в объявлениях */
-.detail-btn {
-  background: #e5e7eb;
-  color: #111827;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.detail-btn:hover {
-  background: #d1d5db;
-}
-
-/* Отзывы сотрудников */
-.reviews {
-  margin-top: 32px;
-}
-
-.reviews h2 {
-  font-size: 18px;
-  margin-bottom: 16px;
-}
-
-.review-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 16px;
+.home-page-old__info-card--gold {
   border-left: 4px solid #f59e0b;
-  font-style: italic;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease;
 }
 
-.review-card:hover {
-  transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+.home-page-old__info-card h3 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  color: #101828;
 }
 
-.review-card p {
+.home-page-old__info-card p {
+  margin: 0 0 12px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #475467;
+}
+
+.home-page-old__info-card p:last-child {
+  margin-bottom: 0;
+}
+
+.home-page-old__info-card span {
   font-size: 14px;
-  color: #4b5563;
-  margin-bottom: 8px;
-  line-height: 1.5;
+  color: #667085;
 }
 
-.review-card span {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-/* Правая колонка */
-.right-col {
-  background: #fff;
-  padding: 24px;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  height: fit-content;
-  transition: transform 0.2s ease;
-}
-
-.right-col:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.right-col h2 {
-  font-size: 18px;
-  margin-bottom: 20px;
-  color: #111827;
-}
-
-.event {
-  height: 48px;
-  display: flex;
-  align-items: center;
-  border-bottom: 1px solid #e5e7eb;
-  font-size: 14px;
-  padding-left: 10px;
-  color: #4b5563;
-  transition: background-color 0.2s ease;
-}
-
-.event:hover {
-  background-color: #f9fafb;
-  cursor: pointer;
-}
-
-/* Кнопка "Все события" */
-.events-btn {
-  margin-top: 24px;
-  width: 100%;
-  background: #e5e7eb;
-  color: #111827;
+.home-page-old__secondary-btn,
+.home-page-old__login-btn {
   border: none;
-  padding: 12px 16px;
-  border-radius: 8px;
+  border-radius: 10px;
+  padding: 10px 16px;
   font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.events-btn:hover {
-  background: #d1d5db;
-  transform: translateY(-1px);
+.home-page-old__secondary-btn {
+  background: #e4e7ec;
+  color: #344054;
 }
 
-/* Загрузка */
-.loading-card {
+.home-page-old__sidebar {
+  min-width: 0;
+}
+
+.home-page-old__events-card {
   background: #fff;
+  border-radius: 20px;
+  padding: 24px 20px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+  position: sticky;
+  top: 92px;
+}
+
+.home-page-old__events-card h2 {
+  margin: 0 0 18px;
+  font-size: 26px;
+  color: #101828;
+}
+
+.home-page-old__event-item {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #eaecf0;
+}
+
+.home-page-old__event-date {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+
+.home-page-old__event-date strong {
+  color: #101828;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.home-page-old__event-date span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.home-page-old__event-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.home-page-old__event-copy strong {
+  color: #101828;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.home-page-old__event-copy span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.home-page-old__events-btn {
+  width: 100%;
+  margin-top: 18px;
+}
+
+.home-page-old__event-loading,
+.home-page-old__empty-state {
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 12px;
-  padding: 20px;
-  text-align: center;
-  color: #9ca3af;
-  height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.event-loading {
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #9ca3af;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.no-news,
-.no-events {
-  padding: 20px;
-  text-align: center;
-  color: #9ca3af;
   background: #f9fafb;
-  border-radius: 8px;
+  color: #98a2b3;
+  font-size: 14px;
 }
 
-.loading-screen {
+.home-page-old__guest {
+  min-height: calc(100vh - 72px);
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
-  height: 100vh;
-  background: #f3f4f6;
-  color: #6b7280;
-  font-size: 18px;
+  justify-content: center;
+  gap: 14px;
+  background: #ececec;
+  padding: 24px;
+  text-align: center;
 }
 
-.debug-btn {
-  margin-top: 20px;
-  padding: 10px 20px;
-  background: #10b981;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
+.home-page-old__guest h2 {
+  margin: 0;
+  font-size: 34px;
+  color: #101828;
 }
 
-.debug-btn:hover {
-  background: #059669;
+.home-page-old__guest p {
+  max-width: 520px;
+  margin: 0;
+  font-size: 16px;
+  color: #475467;
 }
 
-/* Адаптив */
-@media (max-width: 1300px) {
-  .welcome-banner {
-    width: calc(100vw - 48px);
+.home-page-old__login-btn {
+  background: #3c6be0;
+  color: #fff;
+}
+
+@media (max-width: 1100px) {
+  .home-page-old__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .home-page-old__events-card {
+    position: static;
   }
 }
 
 @media (max-width: 768px) {
-  .content-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .news-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .stats {
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .stat {
-    width: 100%;
-  }
-}
-
-@media (max-width: 320px) {
-  .container {
+  .home-page-old__container {
     padding: 0 16px;
   }
 
-  .right-col {
-    padding: 20px;
+  .home-page-old__banner {
+    padding: 24px 20px;
+  }
+
+  .home-page-old__banner h2 {
+    font-size: 28px;
+  }
+
+  .home-page-old__section-header h2 {
+    font-size: 26px;
+  }
+
+  .home-page-old__news-grid,
+  .home-page-old__stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-page-old__container {
+    padding: 0 12px;
+  }
+
+  .home-page-old__banner {
+    min-height: 0;
+    padding: 20px 16px;
+  }
+
+  .home-page-old__banner h2 {
+    font-size: 24px;
+    line-height: 1.25;
+  }
+
+  .home-page-old__banner p {
+    font-size: 14px;
+  }
+
+  .home-page-old__section,
+  .home-page-old__events-card {
+    padding: 20px 16px;
+  }
+
+  .home-page-old__section-header h2,
+  .home-page-old__events-card h2 {
+    font-size: 22px;
+  }
+
+  .home-page-old__news-image {
+    height: 170px;
+  }
+
+  .home-page-old__news-body {
+    padding: 14px 14px 10px;
+  }
+
+  .home-page-old__news-body h3 {
+    font-size: 18px;
+  }
+
+  .home-page-old__news-footer {
+    flex-wrap: wrap;
+    padding: 12px 14px 14px;
+  }
+
+  .home-page-old__stat-card {
+    padding: 16px 14px;
+  }
+
+  .home-page-old__stat-icon {
+    font-size: 24px;
+  }
+
+  .home-page-old__info-card {
+    padding: 16px;
+  }
+
+  .home-page-old__info-card h3 {
+    font-size: 18px;
+  }
+
+  .home-page-old__info-card p {
+    font-size: 14px;
+  }
+
+  .home-page-old__event-item {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .home-page-old__event-date {
+    grid-auto-flow: column;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .home-page-old__secondary-btn,
+  .home-page-old__events-btn,
+  .home-page-old__link-btn,
+  .home-page-old__login-btn {
+    width: 100%;
+  }
+
+  .home-page-old__guest h2 {
+    font-size: 26px;
+  }
+
+  .home-page-old__guest p {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  .home-page-old__container {
+    padding: 0 10px;
+  }
+
+  .home-page-old__banner,
+  .home-page-old__section,
+  .home-page-old__events-card {
+    padding: 18px 14px;
+  }
+
+  .home-page-old__banner h2,
+  .home-page-old__guest h2 {
+    font-size: 22px;
+  }
+
+  .home-page-old__section-header h2,
+  .home-page-old__events-card h2 {
+    font-size: 20px;
+  }
+
+  .home-page-old__news-body h3 {
+    font-size: 17px;
+  }
+
+  .home-page-old__news-footer,
+  .home-page-old__event-copy strong,
+  .home-page-old__info-card p,
+  .home-page-old__guest p {
+    font-size: 13px;
   }
 }
 </style>

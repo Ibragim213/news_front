@@ -1,27 +1,35 @@
 <template>
   <div class="calendar-view">
-    <!-- Основной контент -->
     <div class="container">
-      <div class="calendar-header">
-        <h1>Календарь</h1>
-        <button class="add-event-btn" @click="showAddEventModal = true">➕ Добавить событие</button>
+      <section class="calendar-hero">
+        <div class="calendar-hero__copy">
+          <h1>Календарь</h1>
+          <p>Планируйте личные и общие события компании в одном месте.</p>
+        </div>
+
+        <button class="add-event-btn" type="button" @click="openAddEventModal">
+          {{ canManageSharedEvents ? 'Добавить событие' : 'Добавить личное событие' }}
+        </button>
+      </section>
+
+      <div v-if="statusMessage" class="message" :class="messageClass">
+        {{ statusMessage }}
       </div>
 
-      <div class="calendar-controls">
-        <div class="month-navigation">
-          <button class="nav-btn" @click="prevMonth">←</button>
-          <button class="nav-btn" @click="prevYear">❮❮</button>
+      <section class="calendar-toolbar">
+        <div class="calendar-toolbar__nav">
+          <button class="nav-btn" type="button" @click="prevYear">‹‹</button>
+          <button class="nav-btn" type="button" @click="prevMonth">‹</button>
         </div>
 
         <h2>{{ currentMonthName }} {{ currentYear }}</h2>
 
-        <div class="month-navigation">
-          <button class="nav-btn" @click="nextYear">❯❯</button>
-          <button class="nav-btn" @click="nextMonth">→</button>
+        <div class="calendar-toolbar__nav">
+          <button class="nav-btn" type="button" @click="nextMonth">›</button>
+          <button class="nav-btn" type="button" @click="nextYear">››</button>
         </div>
-      </div>
+      </section>
 
-      <!-- Индикатор загрузки -->
       <div v-if="loading" class="loading-state">Загрузка событий...</div>
 
       <template v-else>
@@ -30,85 +38,202 @@
         </div>
 
         <div class="calendar-days">
-          <div v-for="day in emptyDays" :key="'empty-' + day" class="calendar-day empty"></div>
+          <div v-for="day in emptyDays" :key="'empty-' + day" class="calendar-day calendar-day--empty"></div>
 
-          <div
+          <button
             v-for="day in daysInMonth"
-            :key="day.date"
+            :key="day.dateKey"
+            type="button"
             class="calendar-day"
-            :class="{ 'has-event': day.hasEvent, today: day.isToday }"
+            :class="{ 'calendar-day--today': day.isToday, 'calendar-day--active': day.hasEvent }"
             @click="selectDay(day)"
           >
-            <div class="day-number">{{ day.date.getDate() }}</div>
-            <div v-if="day.events.length > 0" class="event-block">
-              <div class="event-item" v-for="(event, index) in day.events.slice(0, 1)" :key="index">
-                {{ truncateTitle(event.title) }}
+            <span class="day-number">{{ day.dayNumber }}</span>
+
+            <div v-if="day.events.length" class="day-events-preview">
+              <div
+                v-for="event in day.events.slice(0, 2)"
+                :key="event.id"
+                class="day-event-chip"
+                :class="eventTypeClass(event.eventType)"
+              >
+                <span class="day-event-chip__time">{{ shortEventTime(event) }}</span>
+                <span class="day-event-chip__title">{{ truncateTitle(event.title) }}</span>
               </div>
-              <div v-if="day.events.length > 1" class="more-events">
-                +{{ day.events.length - 1 }}
+
+              <div v-if="day.events.length > 2" class="day-events-more">
+                +{{ day.events.length - 2 }} еще
               </div>
             </div>
-          </div>
+          </button>
         </div>
       </template>
     </div>
 
-    <!-- Модальное окно для добавления события -->
-    <div v-if="showAddEventModal" class="modal-overlay" @click.self="closeModal">
+    <div v-if="showAddEventModal" class="modal-overlay" @click.self="closeAddEventModal">
       <div class="modal">
-        <h2>📅 Добавить событие</h2>
-        <form @submit.prevent="addEvent" class="event-form">
+        <div class="modal-header">
+          <div>
+            <h2>Новое событие</h2>
+            <p>
+              {{ canManageSharedEvents
+                ? 'Можно создать личное событие, событие для всех сотрудников или только для выбранных.'
+                : 'Личное событие появится только в вашем календаре.' }}
+            </p>
+          </div>
+
+          <button class="icon-btn" type="button" aria-label="Закрыть окно" @click="closeAddEventModal">
+            ×
+          </button>
+        </div>
+
+        <form class="event-form" @submit.prevent="addEvent">
           <div class="form-group">
             <label for="event-title">Название события</label>
-            <input type="text" id="event-title" v-model="newEvent.title" required />
+            <input id="event-title" v-model.trim="newEvent.title" type="text" maxlength="120" required />
           </div>
 
-          <div class="form-group">
-            <label for="event-date">Дата</label>
-            <input type="date" id="event-date" v-model="newEvent.date" required />
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="event-date">Дата</label>
+              <input id="event-date" v-model="newEvent.eventDate" type="date" required />
+            </div>
+
+            <div class="form-group">
+              <label for="event-time">Время</label>
+              <input id="event-time" v-model="newEvent.eventTime" type="time" />
+            </div>
           </div>
 
-          <div class="form-group">
-            <label for="event-time">Время</label>
-            <input type="time" id="event-time" v-model="newEvent.time" />
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="event-type">Тип события</label>
+              <select id="event-type" v-model="newEvent.eventType">
+                <option v-for="option in eventTypeOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group" v-if="canManageSharedEvents">
+              <label>Кому показать</label>
+              <div class="audience-switcher">
+                <button
+                  type="button"
+                  class="audience-btn"
+                  :class="{ 'audience-btn--active': newEvent.audienceType === 'PERSONAL' }"
+                  @click="setAudienceType('PERSONAL')"
+                >
+                  Только мне
+                </button>
+                <button
+                  type="button"
+                  class="audience-btn"
+                  :class="{ 'audience-btn--active': newEvent.audienceType === 'ALL' }"
+                  @click="setAudienceType('ALL')"
+                >
+                  Всем
+                </button>
+                <button
+                  type="button"
+                  class="audience-btn"
+                  :class="{ 'audience-btn--active': newEvent.audienceType === 'SELECTED' }"
+                  @click="setAudienceType('SELECTED')"
+                >
+                  Выбранным
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="canManageSharedEvents && newEvent.audienceType === 'SELECTED'" class="form-group">
+            <div class="target-users__header">
+              <label>Сотрудники</label>
+              <span>Выбрано: {{ newEvent.targetUserIds.length }}</span>
+            </div>
+
+            <div v-if="employeesLoading" class="target-users__loading">Загрузка сотрудников...</div>
+            <div v-else class="target-users">
+              <label v-for="employee in employees" :key="employee.id" class="target-user">
+                <input
+                  type="checkbox"
+                  :checked="newEvent.targetUserIds.includes(employee.id)"
+                  @change="toggleTargetUser(employee.id)"
+                />
+                <span>{{ employee.fullName || employee.username }}</span>
+                <small>{{ employee.email }}</small>
+              </label>
+            </div>
           </div>
 
           <div class="form-group">
             <label for="event-description">Описание</label>
-            <textarea id="event-description" v-model="newEvent.description" rows="3"></textarea>
+            <textarea
+              id="event-description"
+              v-model.trim="newEvent.description"
+              rows="4"
+              maxlength="500"
+              placeholder="Коротко опишите, что будет происходить"
+            />
           </div>
 
           <div class="modal-actions">
-            <button type="button" class="cancel-btn" @click="closeModal">Отмена</button>
-            <button type="submit" class="publish-btn" :disabled="addingEvent">
-              {{ addingEvent ? 'Добавление...' : 'Сохранить' }}
+            <button class="ghost-btn" type="button" :disabled="addingEvent" @click="closeAddEventModal">
+              Отмена
+            </button>
+            <button class="submit-btn" type="submit" :disabled="addingEvent">
+              {{ addingEvent ? 'Сохраняем...' : 'Сохранить событие' }}
             </button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- Модальное окно для просмотра событий дня -->
-    <div v-if="showDayEventsModal" class="modal-overlay" @click.self="closeDayEventsModal">
-      <div class="modal day-events-modal">
-        <h2>
-          События на
-          {{ selectedDay.date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) }}
-        </h2>
-
-        <div v-if="selectedDay.events.length === 0" class="no-events">Нет событий на этот день</div>
-
-        <div v-else class="events-list">
-          <div v-for="(event, index) in selectedDay.events" :key="index" class="event-item-full">
-            <div class="event-time">{{ formatEventTime(event) }}</div>
-            <div class="event-title">{{ event.title }}</div>
-            <div class="event-description">{{ event.description }}</div>
-            <button class="delete-event" @click.stop="deleteEvent(index)">🗑️ Удалить</button>
+    <div v-if="showDayEventsModal && selectedDay" class="modal-overlay" @click.self="closeDayEventsModal">
+      <div class="modal modal--wide">
+        <div class="modal-header">
+          <div>
+            <h2>События на {{ formatDayTitle(selectedDay.dateKey) }}</h2>
+            <p>Все события этого дня для вашего календаря.</p>
           </div>
+
+          <button class="icon-btn" type="button" aria-label="Закрыть окно" @click="closeDayEventsModal">
+            ×
+          </button>
         </div>
 
-        <div class="modal-actions">
-          <button class="close-btn" @click="closeDayEventsModal">Закрыть</button>
+        <div v-if="selectedDay.events.length === 0" class="empty-day-state">На этот день событий пока нет.</div>
+
+        <div v-else class="events-list">
+          <article v-for="event in selectedDay.events" :key="event.id" class="event-card">
+            <div class="event-card__meta">
+              <span class="event-badge" :class="eventTypeClass(event.eventType)">
+                {{ event.eventTypeLabel }}
+              </span>
+              <span class="event-audience">{{ event.audienceLabel }}</span>
+            </div>
+
+            <h3>{{ event.title }}</h3>
+            <p v-if="event.description">{{ event.description }}</p>
+            <p v-else class="event-card__empty-copy">Описание не указано.</p>
+
+            <div class="event-card__footer">
+              <div class="event-card__details">
+                <span>{{ formatEventTime(event.eventTime) }}</span>
+                <span>Организатор: {{ event.createdByFullName || event.createdByUsername || 'Не указан' }}</span>
+              </div>
+
+              <button
+                v-if="event.canDelete"
+                class="delete-btn"
+                type="button"
+                :disabled="deletingEventId === event.id"
+                @click="deleteEvent(event)"
+              >
+                {{ deletingEventId === event.id ? 'Удаляем...' : 'Удалить' }}
+              </button>
+            </div>
+          </article>
         </div>
       </div>
     </div>
@@ -117,6 +242,34 @@
 
 <script>
 import api from '@/services/api'
+import {
+  createCalendarEvent,
+  deleteCalendarEvent,
+  fetchCalendarEventsByMonth,
+  formatCalendarEventDate,
+  formatCalendarEventTime,
+  getEventTypeOptions,
+} from '@/services/calendar'
+import { canUserManageNews, getCurrentUser } from '@/services/news'
+
+function buildDateKey(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getTodayKey() {
+  return buildDateKey(new Date())
+}
+
+function capitalize(value) {
+  if (!value) {
+    return ''
+  }
+
+  return value.charAt(0).toUpperCase() + value.slice(1)
+}
 
 export default {
   name: 'CalendarView',
@@ -124,23 +277,36 @@ export default {
     return {
       currentDate: new Date(),
       weekdays: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+      loading: true,
+      addingEvent: false,
+      deletingEventId: null,
       showAddEventModal: false,
       showDayEventsModal: false,
-      addingEvent: false,
+      employeesLoading: false,
+      statusMessage: '',
+      statusType: 'info',
+      currentUser: getCurrentUser(),
+      employees: [],
+      eventsByDate: {},
       selectedDay: null,
       newEvent: {
         title: '',
-        date: '',
-        time: '',
+        eventDate: getTodayKey(),
+        eventTime: '',
         description: '',
+        eventType: 'MEETING',
+        audienceType: 'PERSONAL',
+        targetUserIds: [],
       },
-      events: {},
-      loading: true,
+      eventTypeOptions: getEventTypeOptions(),
     }
   },
   computed: {
+    canManageSharedEvents() {
+      return canUserManageNews(this.currentUser)
+    },
     currentMonthName() {
-      return this.currentDate.toLocaleString('ru-RU', { month: 'long' })
+      return capitalize(this.currentDate.toLocaleString('ru-RU', { month: 'long' }))
     },
     currentYear() {
       return this.currentDate.getFullYear()
@@ -148,612 +314,1121 @@ export default {
     daysInMonth() {
       const year = this.currentDate.getFullYear()
       const month = this.currentDate.getMonth()
+      const lastDay = new Date(year, month + 1, 0).getDate()
+      const todayKey = getTodayKey()
 
-      const firstDay = new Date(year, month, 1)
-      const lastDay = new Date(year, month + 1, 0)
+      return Array.from({ length: lastDay }, (_, index) => {
+        const date = new Date(year, month, index + 1)
+        const dateKey = buildDateKey(date)
+        const events = this.eventsByDate[dateKey] || []
 
-      const days = []
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-
-      for (let i = 1; i <= lastDay.getDate(); i++) {
-        const date = new Date(year, month, i)
-        const dateKey = date.toISOString().split('T')[0]
-
-        const day = {
-          date: new Date(date),
-          dateKey: dateKey,
-          isToday: date.toDateString() === today.toDateString(),
-          hasEvent: this.events[dateKey] && this.events[dateKey].length > 0,
-          events: this.events[dateKey] || [],
+        return {
+          date,
+          dateKey,
+          dayNumber: index + 1,
+          isToday: dateKey === todayKey,
+          hasEvent: events.length > 0,
+          events,
         }
-
-        days.push(day)
-      }
-
-      return days
+      })
     },
     emptyDays() {
       const firstDay = new Date(this.currentDate.getFullYear(), this.currentDate.getMonth(), 1)
       return (firstDay.getDay() === 0 ? 7 : firstDay.getDay()) - 1
     },
+    messageClass() {
+      return {
+        'message--success': this.statusType === 'success',
+        'message--error': this.statusType === 'error',
+        'message--info': this.statusType === 'info',
+      }
+    },
   },
   mounted() {
-    this.loadEvents()
-    this.newEvent.date = new Date().toISOString().split('T')[0]
+    this.loadMonthEvents()
+    this.loadEmployees()
+    window.addEventListener('user-updated', this.handleUserUpdated)
+  },
+  beforeUnmount() {
+    window.removeEventListener('user-updated', this.handleUserUpdated)
   },
   methods: {
-    async loadEvents() {
-      this.loading = true
-      try {
-        const response = await api.get('/calendar/events')
-        console.log('Events loaded:', response.data)
+    handleUserUpdated() {
+      this.currentUser = getCurrentUser()
+      if (!this.canManageSharedEvents) {
+        this.newEvent.audienceType = 'PERSONAL'
+        this.newEvent.targetUserIds = []
+      }
+      this.loadEmployees()
+      this.loadMonthEvents()
+    },
 
-        // Преобразуем массив событий в объект по датам
-        const eventsByDate = {}
-        response.data.forEach((event) => {
-          const dateKey = event.date
-            ? event.date.split('T')[0]
-            : new Date().toISOString().split('T')[0]
-          if (!eventsByDate[dateKey]) {
-            eventsByDate[dateKey] = []
-          }
-          eventsByDate[dateKey].push(event)
-        })
-        this.events = eventsByDate
+    async loadEmployees() {
+      if (!this.canManageSharedEvents) {
+        this.employees = []
+        return
+      }
+
+      this.employeesLoading = true
+
+      try {
+        const response = await api.get('/employees')
+        const employees = Array.isArray(response.data) ? response.data : []
+        this.employees = [...employees].sort((left, right) =>
+          String(left.fullName || left.username).localeCompare(String(right.fullName || right.username), 'ru'),
+        )
       } catch (error) {
-        console.error('Error loading events:', error)
-        // Если ошибка, загружаем из localStorage как раньше
-        this.events = JSON.parse(localStorage.getItem('calendarEvents')) || {}
+        this.employees = []
+        this.showStatus('Не удалось загрузить список сотрудников для адресных событий.', 'error')
+      } finally {
+        this.employeesLoading = false
+      }
+    },
+
+    async loadMonthEvents() {
+      this.loading = true
+
+      try {
+        const events = await fetchCalendarEventsByMonth(this.currentYear, this.currentDate.getMonth() + 1)
+        this.eventsByDate = this.buildEventsMap(events)
+        this.refreshSelectedDay()
+      } catch (error) {
+        this.eventsByDate = {}
+        this.showStatus(error.response?.data?.message || 'Не удалось загрузить события.', 'error')
       } finally {
         this.loading = false
       }
     },
 
-    truncateTitle(title) {
-      if (title && title.length > 12) {
-        return title.substring(0, 12) + '...'
-      }
-      return title || ''
+    buildEventsMap(events) {
+      const map = {}
+
+      events.forEach((event) => {
+        const dateKey = event.eventDate
+        if (!dateKey) {
+          return
+        }
+
+        if (!map[dateKey]) {
+          map[dateKey] = []
+        }
+
+        map[dateKey].push(event)
+      })
+
+      Object.keys(map).forEach((dateKey) => {
+        map[dateKey].sort((left, right) => {
+          const leftTime = left.eventTime || '99:99'
+          const rightTime = right.eventTime || '99:99'
+          return leftTime.localeCompare(rightTime)
+        })
+      })
+
+      return map
     },
 
     prevMonth() {
-      this.currentDate = new Date(
-        this.currentDate.getFullYear(),
-        this.currentDate.getMonth() - 1,
-        1,
-      )
+      this.currentDate = new Date(this.currentYear, this.currentDate.getMonth() - 1, 1)
+      this.loadMonthEvents()
     },
+
     nextMonth() {
-      this.currentDate = new Date(
-        this.currentDate.getFullYear(),
-        this.currentDate.getMonth() + 1,
-        1,
-      )
+      this.currentDate = new Date(this.currentYear, this.currentDate.getMonth() + 1, 1)
+      this.loadMonthEvents()
     },
+
     prevYear() {
-      this.currentDate = new Date(
-        this.currentDate.getFullYear() - 1,
-        this.currentDate.getMonth(),
-        1,
-      )
+      this.currentDate = new Date(this.currentYear - 1, this.currentDate.getMonth(), 1)
+      this.loadMonthEvents()
     },
+
     nextYear() {
-      this.currentDate = new Date(
-        this.currentDate.getFullYear() + 1,
-        this.currentDate.getMonth(),
-        1,
-      )
+      this.currentDate = new Date(this.currentYear + 1, this.currentDate.getMonth(), 1)
+      this.loadMonthEvents()
     },
-    selectDay(day) {
-      this.selectedDay = day
-      this.showDayEventsModal = true
+
+    openAddEventModal() {
+      this.resetNewEvent()
+      this.showAddEventModal = true
     },
-    closeModal() {
+
+    closeAddEventModal() {
+      if (this.addingEvent) {
+        return
+      }
+
       this.showAddEventModal = false
+      this.resetNewEvent()
+    },
+
+    resetNewEvent() {
       this.newEvent = {
         title: '',
-        date: new Date().toISOString().split('T')[0],
-        time: '',
+        eventDate: getTodayKey(),
+        eventTime: '',
         description: '',
+        eventType: 'MEETING',
+        audienceType: this.canManageSharedEvents ? 'PERSONAL' : 'PERSONAL',
+        targetUserIds: [],
       }
     },
+
+    setAudienceType(audienceType) {
+      this.newEvent.audienceType = audienceType
+      if (audienceType !== 'SELECTED') {
+        this.newEvent.targetUserIds = []
+      }
+    },
+
+    toggleTargetUser(userId) {
+      if (this.newEvent.targetUserIds.includes(userId)) {
+        this.newEvent.targetUserIds = this.newEvent.targetUserIds.filter((id) => id !== userId)
+        return
+      }
+
+      this.newEvent.targetUserIds = [...this.newEvent.targetUserIds, userId]
+    },
+
+    selectDay(day) {
+      this.selectedDay = {
+        dateKey: day.dateKey,
+        events: [...day.events],
+      }
+      this.showDayEventsModal = true
+    },
+
+    refreshSelectedDay() {
+      if (!this.selectedDay) {
+        return
+      }
+
+      const refreshedEvents = this.eventsByDate[this.selectedDay.dateKey] || []
+      this.selectedDay = {
+        ...this.selectedDay,
+        events: refreshedEvents,
+      }
+    },
+
     closeDayEventsModal() {
       this.showDayEventsModal = false
       this.selectedDay = null
     },
-    formatEventTime(event) {
-      if (event.time) {
-        return event.time
-      }
-      return 'Весь день'
-    },
 
     async addEvent() {
-      if (!this.newEvent.title || !this.newEvent.date) {
-        alert('Пожалуйста, заполните название и дату события')
+      if (!this.newEvent.title || !this.newEvent.eventDate) {
+        this.showStatus('Заполните название и дату события.', 'error')
+        return
+      }
+
+      if (this.canManageSharedEvents && this.newEvent.audienceType === 'SELECTED' && !this.newEvent.targetUserIds.length) {
+        this.showStatus('Выберите сотрудников для адресного события.', 'error')
         return
       }
 
       this.addingEvent = true
+
       try {
-        const eventData = {
+        await createCalendarEvent({
           title: this.newEvent.title,
-          date: this.newEvent.date,
-          time: this.newEvent.time || null,
-          description: this.newEvent.description || '',
-        }
+          description: this.newEvent.description,
+          eventDate: this.newEvent.eventDate,
+          eventTime: this.newEvent.eventTime || null,
+          eventType: this.newEvent.eventType,
+          audienceType: this.canManageSharedEvents ? this.newEvent.audienceType : 'PERSONAL',
+          targetUserIds: this.newEvent.audienceType === 'SELECTED' ? this.newEvent.targetUserIds : [],
+        })
 
-        const response = await api.post('/calendar/events', eventData)
-        console.log('Event added:', response.data)
-
-        // Перезагружаем события
-        await this.loadEvents()
-        this.closeModal()
-
-        // Уведомляем главную страницу об обновлении
+        const [year, month] = this.newEvent.eventDate.split('-').map((value) => Number(value))
+        this.currentDate = new Date(year, month - 1, 1)
+        await this.loadMonthEvents()
+        this.closeAddEventModal()
+        this.showStatus('Событие успешно сохранено.', 'success')
         window.dispatchEvent(new Event('events-updated'))
       } catch (error) {
-        console.error('Error adding event:', error)
-        alert('Ошибка при добавлении события')
+        this.showStatus(error.response?.data?.message || 'Не удалось сохранить событие.', 'error')
       } finally {
         this.addingEvent = false
       }
     },
 
-    async deleteEvent(index) {
-      const dateKey = this.selectedDay.dateKey
-      const eventToDelete = this.selectedDay.events[index]
-
-      if (eventToDelete.id) {
-        try {
-          await api.delete(`/calendar/events/${eventToDelete.id}`)
-          await this.loadEvents()
-          window.dispatchEvent(new Event('events-updated'))
-        } catch (error) {
-          console.error('Error deleting event:', error)
-          alert('Ошибка при удалении события')
-        }
-      } else {
-        // Если нет id, удаляем из localStorage
-        this.selectedDay.events.splice(index, 1)
-        this.events[dateKey] = this.selectedDay.events
-
-        if (this.selectedDay.events.length === 0) {
-          delete this.events[dateKey]
-        }
-
-        localStorage.setItem('calendarEvents', JSON.stringify(this.events))
-        window.dispatchEvent(new Event('events-updated'))
+    async deleteEvent(event) {
+      if (!event?.id || !event.canDelete) {
+        return
       }
+
+      const confirmed = window.confirm(`Удалить событие "${event.title}"?`)
+      if (!confirmed) {
+        return
+      }
+
+      this.deletingEventId = event.id
+
+      try {
+        await deleteCalendarEvent(event.id)
+        await this.loadMonthEvents()
+        this.refreshSelectedDay()
+
+        if (this.selectedDay && this.selectedDay.events.length === 0) {
+          this.closeDayEventsModal()
+        }
+
+        this.showStatus('Событие удалено.', 'success')
+        window.dispatchEvent(new Event('events-updated'))
+      } catch (error) {
+        this.showStatus(error.response?.data?.message || 'Не удалось удалить событие.', 'error')
+      } finally {
+        this.deletingEventId = null
+      }
+    },
+
+    truncateTitle(title) {
+      if (!title) {
+        return ''
+      }
+
+      return title.length > 14 ? `${title.slice(0, 14)}...` : title
+    },
+
+    shortEventTime(event) {
+      return event.eventTime ? String(event.eventTime).slice(0, 5) : 'Весь день'
+    },
+
+    formatEventTime(eventTime) {
+      return formatCalendarEventTime(eventTime)
+    },
+
+    formatDayTitle(dateKey) {
+      return formatCalendarEventDate(dateKey, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    },
+
+    eventTypeClass(eventType) {
+      switch (String(eventType || '').toUpperCase()) {
+        case 'ANNOUNCEMENT':
+          return 'event-badge--announcement'
+        case 'TRAINING':
+          return 'event-badge--training'
+        case 'DEADLINE':
+          return 'event-badge--deadline'
+        case 'HOLIDAY':
+          return 'event-badge--holiday'
+        default:
+          return 'event-badge--meeting'
+      }
+    },
+
+    showStatus(message, type = 'info') {
+      this.statusMessage = message
+      this.statusType = type
     },
   },
 }
 </script>
 
 <style scoped>
-/* Основные стили */
 .calendar-view {
-  background: #f3f4f6;
-  min-height: 100vh;
-  padding: 20px 0;
-  overflow: hidden;
+  min-height: calc(100vh - 72px);
+  padding: 20px 0 36px;
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 24%),
+    linear-gradient(180deg, #edf3fb 0%, #f5f7fb 38%, #eef3f8 100%);
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 24px;
+  box-sizing: border-box;
 }
 
-.calendar-header {
+.calendar-hero {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  gap: 24px;
+  margin-bottom: 18px;
+  padding: 28px 24px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #2f80d9 0%, #3867e8 56%, #3f66dd 100%);
+  color: #ffffff;
+  box-shadow: 0 20px 38px rgba(49, 102, 220, 0.2);
 }
 
-.calendar-header h1 {
-  font-size: 24px;
-  color: #111827;
-  font-weight: 600;
+.calendar-hero h1 {
   margin: 0;
+  font-size: 40px;
+  font-weight: 800;
 }
 
-.add-event-btn {
-  padding: 8px 16px;
-  background: #2563eb;
-  color: white;
+.calendar-hero p {
+  margin: 12px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  opacity: 0.95;
+}
+
+.add-event-btn,
+.submit-btn {
+  min-height: 48px;
+  padding: 0 20px;
   border: none;
-  border-radius: 8px;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #2253cb;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
 }
 
-.add-event-btn:hover {
-  background: #1d4ed8;
+.add-event-btn:hover,
+.submit-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 12px 20px rgba(16, 24, 40, 0.12);
+  filter: brightness(1.02);
 }
 
-/* Элементы управления календарем */
-.calendar-controls {
+.calendar-toolbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding: 14px 18px;
+  border: 1px solid rgba(191, 200, 214, 0.65);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 14px 30px rgba(148, 163, 184, 0.12);
 }
 
-.month-navigation {
+.calendar-toolbar h2 {
+  margin: 0;
+  color: #101828;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.calendar-toolbar__nav {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
-.calendar-controls h2 {
-  font-size: 18px;
-  color: #111827;
-  font-weight: 600;
-  margin: 0 10px;
+.nav-btn,
+.ghost-btn,
+.icon-btn,
+.delete-btn {
+  border: none;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
 }
 
 .nav-btn {
-  background: #f3f4f6;
-  border: none;
-  border-radius: 6px;
-  width: 32px;
-  height: 32px;
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #eef2f7;
+  color: #344054;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .nav-btn:hover {
-  background: #e5e7eb;
+  background: #e3e8ef;
 }
 
-/* Дни недели */
-.calendar-weekdays {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  margin-bottom: 8px;
-}
-
-.weekday {
-  text-align: center;
-  font-weight: 500;
-  color: #4b5563;
-  padding: 6px;
+.message {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 14px;
   font-size: 14px;
-}
-
-/* Дни месяца */
-.calendar-days {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  margin-bottom: 20px;
-}
-
-.calendar-day {
-  aspect-ratio: 1;
-  min-height: 80px;
-  border-radius: 8px;
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  cursor: pointer;
-  transition: all 0.2s;
-  background: white;
-  border: 1px solid #e5e7eb;
-  position: relative;
-}
-
-.calendar-day.empty {
-  background: transparent;
-  border: none;
-  cursor: default;
-}
-
-.calendar-day:hover:not(.empty) {
-  background: #f3f4f6;
-}
-
-.calendar-day.today {
-  background: #e0f2fe;
-  border-color: #2563eb;
   font-weight: 600;
 }
 
-.day-number {
-  margin-bottom: 4px;
-  font-weight: 500;
-  color: #111827;
-  font-size: 14px;
-  align-self: flex-end;
+.message--success {
+  background: #e8f7ee;
+  color: #166534;
 }
 
-/* Блоки событий */
-.event-block {
-  width: 100%;
-  margin-top: 4px;
+.message--error {
+  background: #fee2e2;
+  color: #dc2626;
 }
 
-.event-item {
-  width: 100%;
-  padding: 4px 6px;
-  background: #bfdbfe;
-  color: #1e40af;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 2px;
-}
-
-.more-events {
-  width: 100%;
-  padding: 2px 4px;
-  background: #dbeafe;
-  color: #1e40af;
-  border-radius: 6px;
-  font-size: 10px;
-  text-align: center;
+.message--info {
+  background: #e8eefc;
+  color: #1d4ed8;
 }
 
 .loading-state {
+  padding: 44px 28px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(220, 227, 237, 0.9);
   text-align: center;
-  padding: 40px;
-  background: white;
-  border-radius: 16px;
-  color: #6b7280;
-  font-size: 16px;
-  margin: 20px 0;
+  color: #667085;
+  box-shadow: 0 12px 28px rgba(148, 163, 184, 0.12);
 }
 
-/* Модальные окна */
+.calendar-weekdays,
+.calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.calendar-weekdays {
+  margin-bottom: 10px;
+}
+
+.weekday {
+  padding: 10px;
+  text-align: center;
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.calendar-day {
+  min-height: 148px;
+  padding: 12px;
+  border: 1px solid rgba(220, 227, 237, 0.9);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 12px 26px rgba(148, 163, 184, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+}
+
+.calendar-day:not(.calendar-day--empty):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 30px rgba(148, 163, 184, 0.14);
+}
+
+.calendar-day--empty {
+  min-height: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.calendar-day--today {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.calendar-day--active {
+  border-color: rgba(96, 165, 250, 0.45);
+}
+
+.day-number {
+  align-self: flex-end;
+  color: #101828;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.day-events-preview {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.day-event-chip {
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  color: #0f172a;
+}
+
+.day-event-chip__time {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.day-event-chip__title {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.day-events-more {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 4px;
+}
+
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  inset: 0;
   z-index: 1000;
-  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.44);
+  backdrop-filter: blur(7px);
 }
 
 .modal {
-  background: white;
-  padding: 24px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
+  width: min(100%, 620px);
   max-height: 90vh;
   overflow-y: auto;
-  animation: slideUp 0.3s ease;
+  padding: 24px;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.18);
 }
 
-@keyframes slideUp {
-  from {
-    transform: translateY(50px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+.modal--wide {
+  width: min(100%, 760px);
 }
 
-.modal h2 {
-  margin: 0 0 20px;
-  font-size: 20px;
-  color: #111827;
-  font-weight: 600;
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.modal-header h2 {
+  margin: 0 0 8px;
+  color: #101828;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.modal-header p {
+  margin: 0;
+  color: #667085;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #f3f5f8;
+  color: #344054;
+  font-size: 24px;
+}
+
+.icon-btn:hover {
+  background: #e8edf3;
 }
 
 .event-form {
-  overflow: hidden;
+  display: grid;
+  gap: 18px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .form-group {
-  margin-bottom: 16px;
+  display: grid;
+  gap: 8px;
 }
 
-.form-group label {
-  display: block;
-  margin-bottom: 6px;
+.form-group label,
+.target-users__header label {
+  color: #344054;
   font-size: 14px;
-  font-weight: 500;
-  color: #374151;
+  font-weight: 700;
 }
 
 .form-group input,
 .form-group select,
 .form-group textarea {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid #d7e0ec;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #12233d;
   font-size: 14px;
-  transition: all 0.2s;
-  background: #fafafa;
+  box-sizing: border-box;
+}
+
+.form-group textarea {
+  min-height: 116px;
+  resize: vertical;
 }
 
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-  background: white;
+  border-color: #3c6be0;
+  box-shadow: 0 0 0 3px rgba(60, 107, 224, 0.12);
 }
 
-.form-group textarea {
-  min-height: 80px;
-  resize: vertical;
+.audience-switcher {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.audience-btn {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid #d7e0ec;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475467;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.audience-btn--active {
+  border-color: #3c6be0;
+  background: #eef4ff;
+  color: #1d4ed8;
+}
+
+.target-users__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.target-users__header span {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.target-users__loading,
+.empty-day-state {
+  padding: 18px;
+  border-radius: 14px;
+  background: #f8fafc;
+  color: #667085;
+  text-align: center;
+}
+
+.target-users {
+  max-height: 220px;
+  overflow-y: auto;
+  display: grid;
+  gap: 10px;
+  padding: 4px 2px;
+}
+
+.target-user {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid #e3e9f2;
+  border-radius: 14px;
+  background: #fbfcfe;
+}
+
+.target-user input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.target-user span {
+  display: block;
+  color: #101828;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.target-user small {
+  color: #667085;
+  font-size: 12px;
 }
 
 .modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  margin-top: 20px;
 }
 
-.cancel-btn,
-.close-btn {
-  padding: 8px 16px;
-  background: #f3f4f6;
-  color: #4b5563;
-  border: none;
-  border-radius: 8px;
+.ghost-btn,
+.submit-btn,
+.delete-btn {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
   font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
+  font-weight: 700;
 }
 
-.cancel-btn:hover,
-.close-btn:hover {
-  background: #e5e7eb;
+.ghost-btn {
+  background: #eef2f6;
+  color: #374151;
 }
 
-.publish-btn {
-  padding: 8px 16px;
-  background: #2563eb;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
+.ghost-btn:hover:not(:disabled) {
+  background: #e3e8ef;
 }
 
-.publish-btn:hover:not(:disabled) {
-  background: #1d4ed8;
+.submit-btn {
+  background: linear-gradient(135deg, #2f6ce5 0%, #315fdd 100%);
+  color: #ffffff;
 }
 
-.publish-btn:disabled {
-  opacity: 0.6;
+.submit-btn:disabled,
+.ghost-btn:disabled,
+.delete-btn:disabled {
+  opacity: 0.7;
   cursor: not-allowed;
-}
-
-/* События дня */
-.day-events-modal {
-  max-width: 500px;
-}
-
-.no-events {
-  text-align: center;
-  padding: 20px 0;
-  color: #6b7280;
-  font-size: 14px;
+  transform: none;
+  box-shadow: none;
 }
 
 .events-list {
+  display: grid;
+  gap: 14px;
+}
+
+.event-card {
+  padding: 18px;
+  border: 1px solid #e3e9f2;
+  border-radius: 18px;
+  background: #fbfcfe;
+}
+
+.event-card__meta {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 16px;
-  max-height: 400px;
-  overflow-y: auto;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
-.event-item-full {
-  padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: white;
-  position: relative;
-}
-
-.event-time {
+.event-badge,
+.event-audience {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
   font-size: 12px;
-  color: #2563eb;
-  font-weight: 500;
-  margin-bottom: 4px;
+  font-weight: 800;
 }
 
-.event-title {
+.event-audience {
+  background: #eef2f6;
+  color: #475467;
+}
+
+.event-card h3 {
+  margin: 0 0 10px;
+  color: #101828;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.event-card p {
+  margin: 0;
+  color: #475467;
   font-size: 14px;
-  font-weight: 600;
-  color: #111827;
-  margin-bottom: 8px;
-}
-
-.event-description {
-  font-size: 13px;
-  color: #4b5563;
+  line-height: 1.6;
   white-space: pre-line;
 }
 
-.delete-event {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: none;
-  border: none;
-  color: #ef4444;
-  font-size: 12px;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: all 0.2s;
+.event-card__empty-copy {
+  color: #98a2b3;
 }
 
-.delete-event:hover {
+.event-card__footer {
+  margin-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.event-card__details {
+  display: grid;
+  gap: 6px;
+  color: #667085;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.delete-btn {
+  background: #fff5f5;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.delete-btn:hover:not(:disabled) {
   background: #fee2e2;
 }
 
-/* Адаптивность */
-@media (max-width: 768px) {
-  .calendar-weekdays,
-  .calendar-days {
-    grid-template-columns: repeat(5, 1fr);
+.event-badge--meeting {
+  background: #e7efff;
+  color: #1d4ed8;
+}
+
+.event-badge--announcement {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.event-badge--training {
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.event-badge--deadline {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.event-badge--holiday {
+  background: #fff1f2;
+  color: #e11d48;
+}
+
+@media (max-width: 980px) {
+  .calendar-hero {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
-  .weekday:nth-child(6),
-  .weekday:nth-child(7),
-  .calendar-day:nth-child(7n-1),
-  .calendar-day:nth-child(7n) {
-    display: none;
+  .form-grid {
+    grid-template-columns: 1fr;
   }
 
   .calendar-day {
-    min-height: 60px;
+    min-height: 132px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 16px;
+  }
+
+  .calendar-hero {
+    padding: 24px 20px;
+  }
+
+  .calendar-hero h1 {
+    font-size: 34px;
+  }
+
+  .calendar-toolbar {
+    padding: 12px 14px;
+  }
+
+  .calendar-toolbar h2 {
+    font-size: 22px;
+    text-align: center;
+  }
+
+  .calendar-weekdays,
+  .calendar-days {
+    gap: 8px;
+  }
+
+  .calendar-day {
+    min-height: 118px;
+    padding: 10px;
+  }
+
+  .event-card__footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .calendar-toolbar {
+    flex-direction: column;
+  }
+
+  .calendar-weekdays,
+  .calendar-days {
+    gap: 6px;
+  }
+
+  .calendar-day {
+    min-height: 96px;
+    padding: 8px;
+  }
+
+  .day-event-chip {
+    padding: 6px 8px;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .ghost-btn,
+  .submit-btn,
+  .delete-btn {
+    width: 100%;
   }
 }
 
 @media (max-width: 480px) {
   .container {
-    padding: 0 10px;
+    padding: 0 12px;
   }
 
-  .calendar-header h1 {
+  .calendar-hero {
+    padding: 20px 16px;
+  }
+
+  .calendar-hero h1 {
+    font-size: 28px;
+  }
+
+  .calendar-hero p {
+    font-size: 14px;
+  }
+
+  .add-event-btn {
+    width: 100%;
+  }
+
+  .calendar-toolbar {
+    gap: 12px;
+    padding: 12px;
+    align-items: stretch;
+  }
+
+  .calendar-toolbar h2 {
     font-size: 20px;
   }
 
+  .calendar-toolbar__nav {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .nav-btn {
+    flex: 1;
+  }
+
+  .calendar-weekdays {
+    display: none;
+  }
+
+  .calendar-days {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .calendar-day--empty {
+    display: none;
+  }
+
+  .calendar-day {
+    min-height: 0;
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .day-number {
+    align-self: flex-start;
+    font-size: 18px;
+  }
+
+  .day-events-preview {
+    margin-top: 8px;
+  }
+
+  .day-event-chip {
+    padding: 8px 10px;
+  }
+
+  .modal-overlay {
+    align-items: flex-start;
+    overflow-y: auto;
+    padding: 12px;
+  }
+
   .modal {
-    width: 95%;
+    margin: 24px 0;
+    padding: 20px 14px;
+    border-radius: 18px;
+  }
+
+  .modal-header,
+  .target-users__header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .event-card {
     padding: 16px;
+  }
+
+  .event-card h3 {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 360px) {
+  .container {
+    padding: 0 10px;
+  }
+
+  .calendar-hero,
+  .calendar-toolbar,
+  .modal {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .calendar-hero h1 {
+    font-size: 24px;
+  }
+
+  .calendar-toolbar h2,
+  .modal-header h2 {
+    font-size: 18px;
+  }
+
+  .calendar-day,
+  .event-card {
+    padding: 12px;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea,
+  .day-event-chip__title,
+  .ghost-btn,
+  .submit-btn,
+  .delete-btn {
+    font-size: 13px;
   }
 }
 </style>

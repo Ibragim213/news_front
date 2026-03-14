@@ -19,7 +19,9 @@
             <input
               type="text"
               id="username"
+              name="username"
               v-model="username"
+              autocomplete="username"
               placeholder="Введите имя пользователя"
               required
             />
@@ -30,7 +32,9 @@
             <input
               type="email"
               id="email"
+              name="email"
               v-model="email"
+              autocomplete="email"
               placeholder="Введите ваш email"
               required
             />
@@ -41,14 +45,23 @@
             <input
               type="text"
               id="fullName"
+              name="fullName"
               v-model="fullName"
+              autocomplete="name"
               placeholder="Введите ФИО сотрудника"
             />
           </div>
 
           <div class="form-group">
             <label for="position">Должность</label>
-            <input type="text" id="position" v-model="position" placeholder="Введите должность" />
+            <input
+              type="text"
+              id="position"
+              name="position"
+              v-model="position"
+              autocomplete="organization-title"
+              placeholder="Введите должность"
+            />
           </div>
 
           <div class="form-group">
@@ -57,7 +70,9 @@
               <input
                 :type="showPassword ? 'text' : 'password'"
                 id="password"
+                name="password"
                 v-model="password"
+                autocomplete="new-password"
                 placeholder="Введите пароль (минимум 6 символов)"
                 required
               />
@@ -74,7 +89,9 @@
               <input
                 :type="showConfirmPassword ? 'text' : 'password'"
                 id="confirmPassword"
+                name="confirmPassword"
                 v-model="confirmPassword"
+                autocomplete="new-password"
                 placeholder="Подтвердите пароль"
                 required
               />
@@ -299,6 +316,12 @@ export default {
 
 .password-input {
   position: relative;
+  width: 100%;
+}
+
+.password-input input {
+  width: 100%;
+  padding-right: 48px;
 }
 
 .password-toggle {
@@ -347,5 +370,87 @@ export default {
 .back-link a:hover {
   color: #2563eb;
   text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .auth-page {
+    align-items: flex-start;
+    padding: 16px;
+    overflow-y: auto;
+  }
+
+  .auth-card {
+    padding: 28px 20px;
+  }
+
+  .auth-title {
+    font-size: 24px;
+  }
+
+  .auth-subtitle {
+    margin-bottom: 24px;
+    font-size: 15px;
+  }
+
+  .auth-form {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-page {
+    padding: 12px;
+  }
+
+  .auth-card {
+    padding: 22px 16px;
+    border-radius: 14px;
+  }
+
+  .auth-title {
+    font-size: 22px;
+  }
+
+  .form-group input,
+  .form-group select {
+    padding: 11px 14px;
+    font-size: 15px;
+  }
+
+  .submit-btn {
+    font-size: 15px;
+  }
+
+  .back-link {
+    margin-top: 20px;
+  }
+}
+
+@media (max-width: 360px) {
+  .auth-page {
+    padding: 8px;
+  }
+
+  .auth-card {
+    padding: 18px 12px;
+  }
+
+  .auth-title {
+    font-size: 20px;
+  }
+
+  .auth-subtitle,
+  .back-link a {
+    font-size: 12px;
+  }
+
+  .form-group label {
+    font-size: 13px;
+  }
+
+  .submit-btn {
+    padding: 12px;
+    font-size: 14px;
+  }
 }
 </style>

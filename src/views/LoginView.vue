@@ -9,15 +9,17 @@
           {{ errorMessage }}
         </div>
 
-        <form @submit.prevent="handleLogin" class="auth-form">
+        <form class="auth-form" @submit.prevent="handleLogin">
           <div class="form-group">
             <label for="username">Имя пользователя</label>
             <input
-              type="text"
               id="username"
-              v-model="username"
+              name="username"
+              v-model.trim="username"
+              type="text"
+              autocomplete="username"
               placeholder="Введите ваше имя пользователя"
-              required
+              @input="clearErrorMessage"
             />
           </div>
 
@@ -25,22 +27,29 @@
             <label for="password">Пароль</label>
             <div class="password-input">
               <input
-                :type="showPassword ? 'text' : 'password'"
                 id="password"
+                name="password"
                 v-model="password"
+                :type="showPassword ? 'text' : 'password'"
+                autocomplete="current-password"
                 placeholder="Введите ваш пароль"
-                required
+                @input="clearErrorMessage"
               />
-              <button type="button" class="password-toggle" @click="togglePasswordVisibility">
-                <span v-if="showPassword">👁️</span>
-                <span v-else>🔒</span>
+              <button type="button" class="password-toggle" @click="showPassword = !showPassword">
+                {{ showPassword ? 'Скрыть' : 'Показать' }}
               </button>
             </div>
           </div>
 
           <div class="form-options">
             <div class="remember-me">
-              <input type="checkbox" id="remember" v-model="rememberMe" />
+              <input
+                id="remember"
+                name="rememberMe"
+                v-model="rememberMe"
+                type="checkbox"
+                autocomplete="off"
+              />
               <label for="remember">Запомнить меня</label>
             </div>
           </div>
@@ -55,10 +64,7 @@
           <span>или</span>
         </div>
 
-        <div class="register-link">
-          Еще нет аккаунта?
-          <router-link to="/register">Зарегистрироваться</router-link>
-        </div>
+        <div class="auth-note">Новый аккаунт может создать только администратор.</div>
       </div>
     </div>
   </div>
@@ -67,11 +73,13 @@
 <script>
 import axios from 'axios'
 
+const LOGIN_URL = 'http://localhost:8080/api/auth/login'
+
 export default {
   name: 'LoginView',
   data() {
     return {
-      username: '',
+      username: 'admin',
       password: '',
       rememberMe: false,
       showPassword: false,
@@ -79,16 +87,32 @@ export default {
       errorMessage: '',
     }
   },
+  mounted() {
+    const authMessage = sessionStorage.getItem('authMessage')
+
+    if (authMessage) {
+      this.errorMessage = authMessage
+      sessionStorage.removeItem('authMessage')
+    }
+  },
   methods: {
-    togglePasswordVisibility() {
-      this.showPassword = !this.showPassword
+    clearErrorMessage() {
+      if (this.errorMessage) {
+        this.errorMessage = ''
+      }
     },
     async handleLogin() {
+      if (!this.username || !this.password) {
+        this.errorMessage = 'Пожалуйста, заполните все поля'
+        return
+      }
+
       this.isLoading = true
       this.errorMessage = ''
+      sessionStorage.removeItem('authMessage')
 
       try {
-        const response = await axios.post('http://localhost:8080/api/auth/login', {
+        const response = await axios.post(LOGIN_URL, {
           username: this.username,
           password: this.password,
         })
@@ -98,25 +122,26 @@ export default {
         const userData = {
           id: response.data.id,
           username: response.data.username,
-          email: response.data.email,
+          email: response.data.email || '',
           fullName: response.data.fullName || '',
           position: response.data.position || '',
           role: response.data.role || 'USER',
         }
 
         localStorage.setItem('user', JSON.stringify(userData))
-
-        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`
-
         window.dispatchEvent(new Event('user-updated'))
-
         this.$router.push('/')
       } catch (error) {
         console.error('Login error:', error)
+
         if (error.response) {
-          this.errorMessage = error.response.data.message || 'Неверное имя пользователя или пароль'
+          this.errorMessage =
+            error.response.data.message || 'Неверное имя пользователя или пароль'
+        } else if (error.request) {
+          this.errorMessage =
+            'Сервер недоступен или запрос заблокирован CORS. Проверьте, что backend запущен.'
         } else {
-          this.errorMessage = 'Ошибка подключения к серверу'
+          this.errorMessage = 'Ошибка при входе в систему'
         }
       } finally {
         this.isLoading = false
@@ -197,6 +222,8 @@ export default {
   border-radius: 12px;
   font-size: 16px;
   transition: all 0.2s;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .form-group input:focus {
@@ -207,22 +234,31 @@ export default {
 
 .password-input {
   position: relative;
+  width: 100%;
+}
+
+.password-input input {
+  width: 100%;
+  padding-right: 110px;
 }
 
 .password-toggle {
   position: absolute;
-  right: 12px;
+  right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  background: none;
+  background: #f3f4f6;
   border: none;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+  padding: 8px 10px;
 }
 
 .form-options {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
 }
@@ -235,9 +271,16 @@ export default {
 
 .remember-me input {
   width: auto;
+  margin: 0;
+}
+
+.remember-me label {
+  font-size: 14px;
+  color: #374151;
 }
 
 .submit-btn {
+  width: 100%;
   padding: 14px;
   background: #2563eb;
   color: white;
@@ -247,15 +290,17 @@ export default {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  box-sizing: border-box;
 }
 
-.submit-btn:hover {
+.submit-btn:hover:not(:disabled) {
   background: #1d4ed8;
 }
 
 .submit-btn:disabled {
   background: #9ca3af;
   cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .auth-divider {
@@ -263,6 +308,7 @@ export default {
   align-items: center;
   margin: 24px 0;
   color: #9ca3af;
+  font-size: 14px;
 }
 
 .auth-divider::before,
@@ -274,22 +320,112 @@ export default {
 
 .auth-divider span {
   padding: 0 16px;
-  font-size: 14px;
 }
 
-.register-link {
+.auth-note {
   text-align: center;
   font-size: 14px;
   color: #6b7280;
 }
 
-.register-link a {
-  color: #2563eb;
-  text-decoration: none;
-  font-weight: 600;
+@media (max-width: 640px) {
+  .auth-page {
+    align-items: flex-start;
+    padding: 16px;
+    overflow-y: auto;
+  }
+
+  .auth-card {
+    padding: 28px 20px;
+  }
+
+  .auth-title {
+    font-size: 24px;
+  }
+
+  .auth-subtitle {
+    margin-bottom: 24px;
+    font-size: 15px;
+  }
+
+  .auth-form {
+    gap: 16px;
+  }
+
+  .form-options {
+    margin-bottom: 8px;
+  }
 }
 
-.register-link a:hover {
-  text-decoration: underline;
+@media (max-width: 480px) {
+  .auth-page {
+    padding: 12px;
+  }
+
+  .auth-card {
+    padding: 22px 16px;
+    border-radius: 14px;
+  }
+
+  .auth-title {
+    font-size: 22px;
+  }
+
+  .form-group input {
+    padding: 11px 14px;
+    font-size: 15px;
+  }
+
+  .password-input input {
+    padding-right: 92px;
+  }
+
+  .password-toggle {
+    right: 8px;
+    padding: 7px 8px;
+    font-size: 11px;
+  }
+
+  .auth-divider {
+    margin: 20px 0;
+  }
+
+  .auth-note {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+}
+
+@media (max-width: 360px) {
+  .auth-page {
+    padding: 8px;
+  }
+
+  .auth-card {
+    padding: 18px 12px;
+  }
+
+  .auth-title {
+    font-size: 20px;
+  }
+
+  .auth-subtitle,
+  .remember-me label,
+  .auth-note {
+    font-size: 12px;
+  }
+
+  .form-group label {
+    font-size: 13px;
+  }
+
+  .submit-btn {
+    padding: 12px;
+    font-size: 15px;
+  }
+
+  .password-input input {
+    padding-right: 82px;
+  }
 }
 </style>
